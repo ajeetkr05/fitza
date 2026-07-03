@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "968571437373",
+    "project_id": "fitza-cc47e",
+    "storage_bucket": "fitza-cc47e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:968571437373:android:462910c98c406a2bbe0554",
+        "android_client_info": {
+          "package_name": "com.example.fitza"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCx9ZcftRwUGS2ivYQJ7dwcFPON9tp2yc4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
