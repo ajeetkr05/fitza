@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/app_bottom_navigation.dart';
-import 'add_weight_screen.dart';
+import 'add_weight/add_weight_screen.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
