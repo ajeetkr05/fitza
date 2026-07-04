@@ -5,16 +5,22 @@ import 'workout_saved_screen.dart';
 class ReviewWorkoutScreen extends StatelessWidget {
   final List<Map<String, String>> exercises;
   final String notes;
+  final String workoutType;
+  final String duration;
 
   const ReviewWorkoutScreen({
     super.key,
     required this.exercises,
     required this.notes,
+    required this.workoutType,
+    required this.duration,
   });
 
   static const Color primaryBlue = Color(0xFF1555C0);
   static const Color darkText = Color(0xFF0B1B4D);
   static const Color greyText = Color(0xFF667085);
+
+  bool get _isGym => workoutType == 'Gym';
 
   @override
   Widget build(BuildContext context) {
@@ -57,9 +63,9 @@ class ReviewWorkoutScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              const Text(
-                'Exercises',
-                style: TextStyle(
+              Text(
+                _isGym ? 'Exercises' : 'Workout Details',
+                style: const TextStyle(
                   color: darkText,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -94,10 +100,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: primaryBlue,
-                    side: const BorderSide(
-                      color: primaryBlue,
-                      width: 2,
-                    ),
+                    side: const BorderSide(color: primaryBlue, width: 2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -124,6 +127,8 @@ class ReviewWorkoutScreen extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => WorkoutSavedScreen(
                           exerciseCount: exercises.length,
+                          workoutType: workoutType,
+                          duration: duration,
                         ),
                       ),
                     );
@@ -159,9 +164,9 @@ class ReviewWorkoutScreen extends StatelessWidget {
       child: Column(
         children: [
           _summaryRow(
-            icon: Icons.fitness_center_outlined,
+            icon: _workoutIcon(),
             title: 'Workout Type',
-            value: 'Gym',
+            value: workoutType,
           ),
           const Divider(height: 34),
           _summaryRow(
@@ -173,11 +178,24 @@ class ReviewWorkoutScreen extends StatelessWidget {
           _summaryRow(
             icon: Icons.schedule_outlined,
             title: 'Duration',
-            value: '45 min',
+            value: duration,
           ),
         ],
       ),
     );
+  }
+
+  IconData _workoutIcon() {
+    switch (workoutType) {
+      case 'Yoga':
+        return Icons.self_improvement_outlined;
+      case 'Calisthenics':
+        return Icons.accessibility_new_rounded;
+      case 'Cardio':
+        return Icons.monitor_heart_outlined;
+      default:
+        return Icons.fitness_center_outlined;
+    }
   }
 
   Widget _summaryRow({
@@ -194,11 +212,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
             color: const Color(0xFFEAF3FF),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(
-            icon,
-            color: primaryBlue,
-            size: 28,
-          ),
+          child: Icon(icon, color: primaryBlue, size: 28),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -210,12 +224,15 @@ class ReviewWorkoutScreen extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: darkText,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: darkText,
+              fontSize: 21,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -223,6 +240,17 @@ class ReviewWorkoutScreen extends StatelessWidget {
   }
 
   Widget _exerciseCard(Map<String, String> exercise) {
+    final name = exercise['name'] ?? 'Workout';
+    final sets = exercise['sets'] ?? '';
+    final reps = exercise['reps'] ?? '';
+    final weight = exercise['weight'] ?? '';
+
+    final detailText = _isGym
+        ? '$weight kg × $reps reps × $sets sets'
+        : sets.isEmpty || sets == '—'
+            ? '$reps min • ${exercise['difficulty'] ?? 'Easy'}'
+            : '$reps min • $sets sets • ${exercise['difficulty'] ?? 'Easy'}';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Container(
@@ -238,8 +266,8 @@ class ReviewWorkoutScreen extends StatelessWidget {
                 color: const Color(0xFFEAF3FF),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
-                Icons.fitness_center_outlined,
+              child: Icon(
+                _workoutIcon(),
                 color: primaryBlue,
                 size: 30,
               ),
@@ -250,7 +278,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    exercise['name'] ?? 'Exercise',
+                    name,
                     style: const TextStyle(
                       color: darkText,
                       fontSize: 21,
@@ -259,7 +287,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${exercise['weight']} kg × ${exercise['reps']} reps × ${exercise['sets']} sets',
+                    detailText,
                     style: const TextStyle(
                       color: greyText,
                       fontSize: 16,
@@ -302,9 +330,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              notes.trim().isEmpty
-                  ? 'No notes added.'
-                  : notes,
+              notes.trim().isEmpty ? 'No notes added.' : notes,
               style: const TextStyle(
                 color: darkText,
                 fontSize: 18,

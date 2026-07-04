@@ -2,16 +2,59 @@ import 'package:flutter/material.dart';
 
 class WorkoutSavedScreen extends StatelessWidget {
   final int exerciseCount;
+  final String workoutType;
+  final String duration;
 
   const WorkoutSavedScreen({
     super.key,
     required this.exerciseCount,
+    required this.workoutType,
+    required this.duration,
   });
 
   static const Color primaryBlue = Color(0xFF1555C0);
   static const Color darkText = Color(0xFF0B1B4D);
   static const Color greyText = Color(0xFF667085);
   static const Color successGreen = Color(0xFF2E7D32);
+
+  IconData _workoutIcon() {
+    switch (workoutType) {
+      case 'Yoga':
+        return Icons.self_improvement_outlined;
+      case 'Calisthenics':
+        return Icons.accessibility_new_rounded;
+      case 'Cardio':
+        return Icons.monitor_heart_outlined;
+      default:
+        return Icons.fitness_center_outlined;
+    }
+  }
+
+  String get _workoutLabel {
+    if (workoutType == 'Gym') {
+      return 'Gym Workout';
+    }
+
+    return '$workoutType Workout';
+  }
+
+  String get _exerciseLabel {
+    if (workoutType == 'Yoga') {
+      return exerciseCount == 1
+          ? '1 session completed'
+          : '$exerciseCount sessions completed';
+    }
+
+    if (workoutType == 'Cardio') {
+      return exerciseCount == 1
+          ? '1 activity completed'
+          : '$exerciseCount activities completed';
+    }
+
+    return exerciseCount == 1
+        ? '1 exercise completed'
+        : '$exerciseCount exercises completed';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,21 +149,25 @@ class WorkoutSavedScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _summaryRow(
-                      icon: Icons.fitness_center_outlined,
+                      icon: _workoutIcon(),
                       title: 'Workout Type',
-                      value: 'Gym Workout',
+                      value: _workoutLabel,
                     ),
                     const Divider(height: 34),
                     _summaryRow(
                       icon: Icons.schedule_outlined,
                       title: 'Duration',
-                      value: '45 min',
+                      value: duration,
                     ),
                     const Divider(height: 34),
                     _summaryRow(
                       icon: Icons.assignment_outlined,
-                      title: 'Exercises',
-                      value: '$exerciseCount exercises completed',
+                      title: workoutType == 'Yoga'
+                          ? 'Sessions'
+                          : workoutType == 'Cardio'
+                              ? 'Activities'
+                              : 'Exercises',
+                      value: _exerciseLabel,
                     ),
                   ],
                 ),

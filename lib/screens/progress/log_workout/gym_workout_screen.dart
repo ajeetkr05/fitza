@@ -91,6 +91,8 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
         builder: (_) => ReviewWorkoutScreen(
           exercises: List<Map<String, String>>.from(_exercises),
           notes: _notesController.text.trim(),
+          workoutType: 'Gym',
+          duration: '45 min',
         ),
       ),
     );
