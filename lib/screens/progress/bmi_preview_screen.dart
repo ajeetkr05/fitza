@@ -26,7 +26,7 @@ class BmiPreviewScreen extends StatelessWidget {
 
   String get bmiCategory {
     if (bmi < 18.5) return 'Below standard range';
-    if (bmi < 25) return 'Healthy range';
+    if (bmi < 25) return 'Within standard range';
     if (bmi < 30) return 'Above standard range';
     return 'High range';
   }
@@ -153,7 +153,7 @@ class BmiPreviewScreen extends StatelessWidget {
 
               CircleAvatar(
                 radius: 46,
-                backgroundColor: bmiColor.withOpacity(0.14),
+                backgroundColor: bmiColor.withValues(alpha: 0.14),
                 child: Icon(
                   Icons.check_rounded,
                   color: bmiColor,
@@ -203,46 +203,57 @@ class BmiPreviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoRow({
-    required IconData icon,
-    required String title,
-    required String value,
-    Color valueColor = darkText,
-  }) {
-    return Row(
-      children: [
-        Container(
-          height: 54,
-          width: 54,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF3FF),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            icon,
-            color: primaryBlue,
-            size: 28,
+Widget _infoRow({
+  required IconData icon,
+  required String title,
+  required String value,
+  Color valueColor = darkText,
+}) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Container(
+        height: 54,
+        width: 54,
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF3FF),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(
+          icon,
+          color: primaryBlue,
+          size: 28,
+        ),
+      ),
+      const SizedBox(width: 16),
+
+      SizedBox(
+        width: 135,
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: greyText,
+            fontSize: 17,
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: greyText,
-              fontSize: 18,
-            ),
-          ),
-        ),
-        Text(
+      ),
+
+      const SizedBox(width: 8),
+
+      Expanded(
+        child: Text(
           value,
+          textAlign: TextAlign.right,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: valueColor,
-            fontSize: 22,
+            fontSize: value.length > 15 ? 17 : 22,
             fontWeight: FontWeight.bold,
           ),
         ),
-      ],
-    );
+      ),
+    ],
+  );
   }
 }
