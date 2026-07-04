@@ -239,6 +239,28 @@ class ReviewWorkoutScreen extends StatelessWidget {
     );
   }
 
+  String _cardioDetails(Map<String, String> exercise) {
+    final parts = <String>[];
+
+    if ((exercise['reps'] ?? '').isNotEmpty) {
+      parts.add('${exercise['reps']} min');
+    }
+
+    if ((exercise['distance'] ?? '').isNotEmpty) {
+      parts.add('${exercise['distance']} km');
+    }
+
+    if ((exercise['steps'] ?? '').isNotEmpty) {
+      parts.add('${exercise['steps']} steps');
+    }
+
+    if ((exercise['calories'] ?? '').isNotEmpty) {
+      parts.add('${exercise['calories']} kcal');
+    }
+
+    return parts.join(' • ');
+  }
+
   Widget _exerciseCard(Map<String, String> exercise) {
     final name = exercise['name'] ?? 'Workout';
     final sets = exercise['sets'] ?? '';
@@ -247,9 +269,11 @@ class ReviewWorkoutScreen extends StatelessWidget {
 
     final detailText = _isGym
         ? '$weight kg × $reps reps × $sets sets'
-        : sets.isEmpty || sets == '—'
-            ? '$reps min • ${exercise['difficulty'] ?? 'Easy'}'
-            : '$reps min • $sets sets • ${exercise['difficulty'] ?? 'Easy'}';
+        : workoutType == 'Cardio'
+            ? _cardioDetails(exercise)
+            : sets.isEmpty || sets == '—'
+                ? '$reps min • ${exercise['difficulty'] ?? 'Easy'}'
+                : '$reps min • $sets sets • ${exercise['difficulty'] ?? 'Easy'}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
