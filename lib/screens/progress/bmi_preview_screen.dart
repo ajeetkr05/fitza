@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'weight_updated_screen.dart';
+
 class BmiPreviewScreen extends StatelessWidget {
   final double weight;
   final double height;
@@ -46,9 +48,13 @@ class BmiPreviewScreen extends StatelessWidget {
   }
 
   void _saveWeight(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Weight will be saved in the next screen.'),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WeightUpdatedScreen(
+          weight: weight,
+          bmi: bmi,
+        ),
       ),
     );
   }
