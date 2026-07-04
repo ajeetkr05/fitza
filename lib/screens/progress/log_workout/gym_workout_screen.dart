@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'review_workout_screen.dart';
+
 class GymWorkoutScreen extends StatefulWidget {
   const GymWorkoutScreen({super.key});
 
@@ -83,9 +85,13 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Review Workout screen will be connected next.'),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewWorkoutScreen(
+          exercises: List<Map<String, String>>.from(_exercises),
+          notes: _notesController.text.trim(),
+        ),
       ),
     );
   }
