@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/app_bottom_navigation.dart';
 import 'add_weight/add_weight_screen.dart';
+import 'log_workout/select_workout_type_screen.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
@@ -133,6 +134,14 @@ class ProgressDashboardScreen extends StatelessWidget {
                       context,
                       icon: Icons.fitness_center_outlined,
                       label: 'Log Workout',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SelectWorkoutTypeScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
