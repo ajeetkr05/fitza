@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'workout_saved_screen.dart';
+
 class ReviewWorkoutScreen extends StatelessWidget {
   final List<Map<String, String>> exercises;
   final String notes;
@@ -117,10 +119,11 @@ class ReviewWorkoutScreen extends StatelessWidget {
                 height: 58,
                 child: ElevatedButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Workout Saved screen will be connected next.',
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => WorkoutSavedScreen(
+                          exerciseCount: exercises.length,
                         ),
                       ),
                     );
