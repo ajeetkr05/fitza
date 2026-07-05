@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/progress/weight_entry.dart';
+import '../../../services/progress/weight_firestore_service.dart';
 import '../trends/trends_screen.dart';
 
 class WeightUpdatedScreen extends StatelessWidget {
@@ -50,9 +52,7 @@ class WeightUpdatedScreen extends StatelessWidget {
                   const SizedBox(width: 48),
                 ],
               ),
-
               const SizedBox(height: 70),
-
               Container(
                 height: 170,
                 width: 170,
@@ -73,9 +73,7 @@ class WeightUpdatedScreen extends StatelessWidget {
                   size: 100,
                 ),
               ),
-
               const SizedBox(height: 48),
-
               const Text(
                 'Weight and BMI updated',
                 textAlign: TextAlign.center,
@@ -85,9 +83,7 @@ class WeightUpdatedScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 10),
-
               const Text(
                 'Great job staying consistent!',
                 style: TextStyle(
@@ -95,9 +91,7 @@ class WeightUpdatedScreen extends StatelessWidget {
                   fontSize: 19,
                 ),
               ),
-
               const SizedBox(height: 44),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -128,19 +122,11 @@ class WeightUpdatedScreen extends StatelessWidget {
                       value: bmi.toStringAsFixed(1),
                     ),
                     const Divider(height: 34),
-                    _summaryRow(
-                      icon: Icons.trending_down_rounded,
-                      iconColor: successGreen,
-                      title: 'Change from last week',
-                      value: '↓ 1.2 kg',
-                      valueColor: successGreen,
-                    ),
+                    _weightChangeRow(),
                   ],
                 ),
               ),
-
               const SizedBox(height: 48),
-
               SizedBox(
                 width: double.infinity,
                 height: 58,
@@ -164,9 +150,7 @@ class WeightUpdatedScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 14),
-
               SizedBox(
                 width: double.infinity,
                 height: 58,
@@ -205,6 +189,77 @@ class WeightUpdatedScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _weightChangeRow() {
+    return StreamBuilder<List<WeightEntry>>(
+      stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _summaryRow(
+            icon: Icons.error_outline_rounded,
+            iconColor: Colors.red,
+            title: 'Change from previous entry',
+            value: 'Unavailable',
+            valueColor: Colors.red,
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return _summaryRow(
+            icon: Icons.hourglass_top_rounded,
+            iconColor: primaryBlue,
+            title: 'Change from previous entry',
+            value: 'Loading...',
+            valueColor: primaryBlue,
+          );
+        }
+
+        final entries = snapshot.data!;
+
+        if (entries.length < 2) {
+          return _summaryRow(
+            icon: Icons.remove_rounded,
+            iconColor: primaryBlue,
+            title: 'Change from previous entry',
+            value: 'First entry',
+            valueColor: primaryBlue,
+          );
+        }
+
+        final latestEntry = entries.last;
+        final previousEntry = entries[entries.length - 2];
+        final changeKg = latestEntry.weightKg - previousEntry.weightKg;
+
+        if (changeKg < 0) {
+          return _summaryRow(
+            icon: Icons.trending_down_rounded,
+            iconColor: successGreen,
+            title: 'Change from previous entry',
+            value: '↓ ${changeKg.abs().toStringAsFixed(1)} kg',
+            valueColor: successGreen,
+          );
+        }
+
+        if (changeKg > 0) {
+          return _summaryRow(
+            icon: Icons.trending_up_rounded,
+            iconColor: Colors.orange,
+            title: 'Change from previous entry',
+            value: '↑ ${changeKg.toStringAsFixed(1)} kg',
+            valueColor: Colors.orange,
+          );
+        }
+
+        return _summaryRow(
+          icon: Icons.remove_rounded,
+          iconColor: primaryBlue,
+          title: 'Change from previous entry',
+          value: 'No change',
+          valueColor: primaryBlue,
+        );
+      },
     );
   }
 
