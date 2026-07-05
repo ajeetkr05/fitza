@@ -6,7 +6,9 @@ import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
 import 'trends/trends_screen.dart';
 import '../../models/progress/weight_entry.dart';
+import '../../models/progress/workout_entry.dart';
 import '../../services/progress/weight_firestore_service.dart';
+import '../../services/progress/workout_firestore_service.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
@@ -130,32 +132,63 @@ class ProgressDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.trending_up_rounded,
-                      iconColor: successGreen,
-                      title: 'Workout Streak',
-                      value: '12',
-                      unit: 'days',
-                      subtitle: '',
-                      subtitleColor: successGreen,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.fitness_center_outlined,
-                      iconColor: primaryBlue,
-                      title: 'Workouts\nThis Week',
-                      value: '4',
-                      unit: 'workouts',
-                      subtitle: '',
-                      subtitleColor: primaryBlue,
-                    ),
-                  ),
-                ],
+              StreamBuilder<List<WorkoutEntry>>(
+                stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _workoutSummaryCards(
+                      streakValue: '—',
+                      streakUnit: 'days',
+                      streakSubtitle: 'Could not load',
+                      streakSubtitleColor: Colors.red,
+                      workoutsValue: '—',
+                      workoutsUnit: 'workouts',
+                      workoutsSubtitle: 'Could not load',
+                      workoutsSubtitleColor: Colors.red,
+                    );
+                  }
+
+                  if (!snapshot.hasData) {
+                    return _workoutSummaryCards(
+                      streakValue: '—',
+                      streakUnit: 'days',
+                      streakSubtitle: 'Loading...',
+                      streakSubtitleColor: primaryBlue,
+                      workoutsValue: '—',
+                      workoutsUnit: 'workouts',
+                      workoutsSubtitle: 'Loading...',
+                      workoutsSubtitleColor: primaryBlue,
+                    );
+                  }
+
+                  final workouts = snapshot.data!;
+                  final streakDays = _currentWorkoutStreak(workouts);
+                  final workoutsThisWeek = _workoutsThisWeek(workouts);
+                  final hasWorkoutToday = _hasWorkoutToday(workouts);
+
+                  return _workoutSummaryCards(
+                    streakValue: streakDays.toString(),
+                    streakUnit: streakDays == 1 ? 'day' : 'days',
+                    streakSubtitle: workouts.isEmpty
+                        ? 'Log a workout'
+                        : hasWorkoutToday
+                            ? streakDays == 1
+                                ? 'Started today'
+                                : 'Keep it going'
+                            : 'Start one today',
+                    streakSubtitleColor:
+                        hasWorkoutToday ? successGreen : primaryBlue,
+                    workoutsValue: workoutsThisWeek.toString(),
+                    workoutsUnit:
+                        workoutsThisWeek == 1 ? 'workout' : 'workouts',
+                    workoutsSubtitle: workoutsThisWeek == 0
+                        ? 'No workouts yet'
+                        : 'Keep moving',
+                    workoutsSubtitleColor: workoutsThisWeek == 0
+                        ? primaryBlue
+                        : successGreen,
+                  );
+                },
               ),
 
               const SizedBox(height: 18),
@@ -344,6 +377,178 @@ class ProgressDashboardScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _workoutSummaryCards({
+    required String streakValue,
+    required String streakUnit,
+    required String streakSubtitle,
+    required Color streakSubtitleColor,
+    required String workoutsValue,
+    required String workoutsUnit,
+    required String workoutsSubtitle,
+    required Color workoutsSubtitleColor,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            icon: Icons.trending_up_rounded,
+            iconColor: successGreen,
+            title: 'Workout Streak',
+            value: streakValue,
+            unit: streakUnit,
+            subtitle: streakSubtitle,
+            subtitleColor: streakSubtitleColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _statCard(
+            icon: Icons.fitness_center_outlined,
+            iconColor: primaryBlue,
+            title: 'Workouts\nThis Week',
+            value: workoutsValue,
+            unit: workoutsUnit,
+            subtitle: workoutsSubtitle,
+            subtitleColor: workoutsSubtitleColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  bool _hasWorkoutToday(List<WorkoutEntry> workouts) {
+    final today = _dateOnly(DateTime.now());
+
+    return workouts.any(
+      (workout) => _dateOnly(workout.recordedAt) == today,
+    );
+  }
+
+  int _currentWorkoutStreak(List<WorkoutEntry> workouts) {
+    final workoutDays = workouts
+        .map((workout) => _dateOnly(workout.recordedAt))
+        .toSet();
+
+    var checkingDate = _dateOnly(DateTime.now());
+    var streak = 0;
+
+    while (workoutDays.contains(checkingDate)) {
+      streak++;
+      checkingDate = checkingDate.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
+  int _workoutsThisWeek(List<WorkoutEntry> workouts) {
+    final today = _dateOnly(DateTime.now());
+
+    final weekStart = today.subtract(
+      Duration(days: today.weekday - 1),
+    );
+
+    return workouts.where((workout) {
+      final workoutDay = _dateOnly(workout.recordedAt);
+
+      return !workoutDay.isBefore(weekStart) &&
+          !workoutDay.isAfter(today);
+    }).length;
+  }
+
+  IconData _workoutIcon(String workoutType) {
+    switch (workoutType) {
+      case 'Yoga':
+        return Icons.self_improvement_outlined;
+      case 'Calisthenics':
+        return Icons.accessibility_new_rounded;
+      case 'Cardio':
+        return Icons.monitor_heart_outlined;
+      default:
+        return Icons.fitness_center_outlined;
+    }
+  }
+
+  Color _workoutIconColor(String workoutType) {
+    switch (workoutType) {
+      case 'Yoga':
+        return Colors.deepPurple;
+      case 'Calisthenics':
+        return successGreen;
+      case 'Cardio':
+        return Colors.orange;
+      default:
+        return primaryBlue;
+    }
+  }
+
+  String _recentWorkoutTitle(WorkoutEntry workout) {
+    if (workout.exercises.isNotEmpty) {
+      final name = workout.exercises.first['name']?.toString().trim() ?? '';
+
+      if (name.isNotEmpty) {
+        return name;
+      }
+    }
+
+    return '${workout.workoutType} Workout';
+  }
+
+  String _recentWorkoutDetails(WorkoutEntry workout) {
+    final parts = <String>[workout.workoutType];
+
+    if (workout.durationMinutes > 0) {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    if (workout.workoutType == 'Cardio' &&
+        workout.exercises.isNotEmpty) {
+      final distanceValue = workout.exercises.first['distanceKm'];
+      final distance = distanceValue is num
+          ? distanceValue
+          : double.tryParse(distanceValue?.toString() ?? '');
+
+      if (distance != null) {
+        final formattedDistance = distance % 1 == 0
+            ? distance.toInt().toString()
+            : distance.toStringAsFixed(1);
+
+        parts.add('$formattedDistance km');
+      }
+    } else if (workout.exercises.length > 1) {
+      parts.add('${workout.exercises.length} exercises');
+    }
+
+    return parts.join(' • ');
+  }
+
+  String _recentWorkoutTime(DateTime date) {
+    final today = _dateOnly(DateTime.now());
+    final workoutDay = _dateOnly(date);
+    final difference = today.difference(workoutDay).inDays;
+
+    if (difference <= 0) {
+      return 'Today';
+    }
+
+    if (difference == 1) {
+      return 'Yesterday';
+    }
+
+    if (difference < 7) {
+      return '$difference days ago';
+    }
+
+    if (difference < 14) {
+      return '1 week ago';
+    }
+
+    return '${difference ~/ 7} weeks ago';
   }
 
   Widget _statCard({
@@ -624,7 +829,14 @@ class ProgressDashboardScreen extends StatelessWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => _showComingSoon(context, 'Exercise History'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ExerciseHistoryScreen(),
+                    ),
+                  );
+                },
                 child: const Text(
                   'View All',
                   style: TextStyle(
@@ -636,28 +848,58 @@ class ProgressDashboardScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          _workoutRow(
-            icon: Icons.fitness_center_outlined,
-            iconColor: primaryBlue,
-            title: 'Bench Press',
-            details: '30 kg × 10 reps × 3 sets',
-            time: '2 days ago',
-          ),
-          const SizedBox(height: 10),
-          _workoutRow(
-            icon: Icons.accessibility_new_rounded,
-            iconColor: successGreen,
-            title: 'Squats',
-            details: '40 kg × 8 reps × 3 sets',
-            time: '3 days ago',
-          ),
-          const SizedBox(height: 10),
-          _workoutRow(
-            icon: Icons.self_improvement_outlined,
-            iconColor: Colors.deepPurple,
-            title: 'Yoga Flow',
-            details: '30 min',
-            time: '5 days ago',
+          StreamBuilder<List<WorkoutEntry>>(
+            stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Could not load recent workouts.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              final recentWorkouts = snapshot.data!
+                  .reversed
+                  .take(3)
+                  .toList();
+
+              if (recentWorkouts.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Save a workout to see it here.',
+                    style: TextStyle(
+                      color: Color(0xFF667085),
+                      fontSize: 15,
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: List.generate(
+                  recentWorkouts.length,
+                  (index) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index == recentWorkouts.length - 1 ? 0 : 10,
+                    ),
+                    child: _workoutRow(
+                      workout: recentWorkouts[index],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -665,12 +907,10 @@ class ProgressDashboardScreen extends StatelessWidget {
   }
 
   Widget _workoutRow({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String details,
-    required String time,
+    required WorkoutEntry workout,
   }) {
+    final iconColor = _workoutIconColor(workout.workoutType);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -683,7 +923,10 @@ class ProgressDashboardScreen extends StatelessWidget {
           CircleAvatar(
             radius: 22,
             backgroundColor: iconColor.withValues(alpha: 0.10),
-            child: Icon(icon, color: iconColor),
+            child: Icon(
+              _workoutIcon(workout.workoutType),
+              color: iconColor,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -691,7 +934,9 @@ class ProgressDashboardScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  _recentWorkoutTitle(workout),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: darkText,
                     fontSize: 17,
@@ -700,7 +945,9 @@ class ProgressDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  details,
+                  _recentWorkoutDetails(workout),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF5B6475),
                     fontSize: 12,
@@ -709,21 +956,13 @@ class ProgressDashboardScreen extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            children: [
-              Text(
-                time,
-                style: const TextStyle(
-                  color: Color(0xFF6B7280),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 7),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF6B7280),
-              ),
-            ],
+          const SizedBox(width: 8),
+          Text(
+            _recentWorkoutTime(workout.recordedAt),
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 12,
+            ),
           ),
         ],
       ),
