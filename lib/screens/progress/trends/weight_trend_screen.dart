@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../add_weight/add_weight_screen.dart';
 import '../log_workout/select_workout_type_screen.dart';
+import '../../../models/progress/weight_entry.dart';
+import '../../../services/progress/weight_firestore_service.dart';
 
 class WeightTrendScreen extends StatefulWidget {
   final String initialTrendType;
@@ -45,6 +47,50 @@ class _WeightTrendScreenState extends State<WeightTrendScreen> {
     _selectedTrend = widget.initialTrendType;
     _selectedRange = widget.initialTimeRange;
   }
+
+  bool get _usesFirestoreTrend {
+  return _selectedTrend == 'Weight' || _selectedTrend == 'BMI';
+}
+
+List<WeightEntry> _entriesForSelectedRange(
+  List<WeightEntry> entries,
+) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  DateTime startDate;
+
+  if (_selectedRange == 'Weekly') {
+    startDate = today.subtract(const Duration(days: 6));
+  } else if (_selectedRange == 'Monthly') {
+    startDate = today.subtract(const Duration(days: 29));
+  } else {
+    startDate = today.subtract(const Duration(days: 364));
+  }
+
+  return entries
+      .where((entry) => !entry.recordedAt.isBefore(startDate))
+      .toList();
+}
+
+String _formatTrendDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  return '${date.day} ${months[date.month - 1]}';
+}
 
   IconData _trendIcon(String trend) {
     switch (trend) {
@@ -374,45 +420,180 @@ class _WeightTrendScreenState extends State<WeightTrendScreen> {
 
                           const SizedBox(height: 16),
 
-                          SizedBox(
-                            height: 320,
-                            child: DetailedTrendChart(
-                              values: _chartValues,
-                              labels: _chartLabels,
-                              trendType: _selectedTrend,
+                          if (_usesFirestoreTrend)
+                            StreamBuilder<List<WeightEntry>>(
+                              stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return const SizedBox(
+                                    height: 320,
+                                    child: Center(
+                                      child: Text(
+                                        'Could not load trend data.',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                if (!snapshot.hasData) {
+                                  return const SizedBox(
+                                    height: 320,
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                }
+
+                                final entries = _entriesForSelectedRange(snapshot.data!);
+
+                                if (entries.isEmpty) {
+                                  return SizedBox(
+                                    height: 320,
+                                    child: Center(
+                                      child: Text(
+                                        'No ${_selectedTrend.toLowerCase()} entries in this period.',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: greyText,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final isBmiTrend = _selectedTrend == 'BMI';
+
+                                final values = entries
+                                    .map((entry) => isBmiTrend ? entry.bmi : entry.weightKg)
+                                    .toList();
+
+                                final labels = entries
+                                    .map((entry) => _formatTrendDate(entry.recordedAt))
+                                    .toList();
+
+                                final average =
+                                    values.reduce((total, value) => total + value) / values.length;
+
+                                final latest = values.last;
+                                final change = values.length >= 2 ? latest - values.first : null;
+
+                                String changeText;
+                                Color changeColor;
+                                IconData changeIcon;
+
+                                if (change == null) {
+                                  changeText = 'No earlier entry';
+                                  changeColor = primaryBlue;
+                                  changeIcon = Icons.remove_rounded;
+                                } else if (change < 0) {
+                                  changeText = isBmiTrend
+                                      ? '↓ ${change.abs().toStringAsFixed(1)}'
+                                      : '↓ ${change.abs().toStringAsFixed(1)} kg';
+                                  changeColor = successGreen;
+                                  changeIcon = Icons.south_rounded;
+                                } else if (change > 0) {
+                                  changeText = isBmiTrend
+                                      ? '↑ ${change.toStringAsFixed(1)}'
+                                      : '↑ ${change.toStringAsFixed(1)} kg';
+                                  changeColor = Colors.orange;
+                                  changeIcon = Icons.north_rounded;
+                                } else {
+                                  changeText = 'No change';
+                                  changeColor = primaryBlue;
+                                  changeIcon = Icons.remove_rounded;
+                                }
+
+                                return Column(
+                                  children: [
+                                    SizedBox(
+                                      height: 320,
+                                      child: DetailedTrendChart(
+                                        values: values,
+                                        labels: labels,
+                                        trendType: _selectedTrend,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _bottomMetric(
+                                            icon: Icons.show_chart_rounded,
+                                            label: 'Average',
+                                            value: isBmiTrend
+                                                ? average.toStringAsFixed(1)
+                                                : '${average.toStringAsFixed(1)} kg',
+                                          ),
+                                        ),
+                                        _verticalDivider(),
+                                        Expanded(
+                                          child: _bottomMetric(
+                                            icon: Icons.scale_outlined,
+                                            label: 'Latest',
+                                            value: isBmiTrend
+                                                ? latest.toStringAsFixed(1)
+                                                : '${latest.toStringAsFixed(1)} kg',
+                                          ),
+                                        ),
+                                        _verticalDivider(),
+                                        Expanded(
+                                          child: _bottomMetric(
+                                            icon: changeIcon,
+                                            label: 'Change',
+                                            value: changeText,
+                                            valueColor: changeColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            )
+                          else
+                            Column(
+                              children: [
+                                SizedBox(
+                                  height: 320,
+                                  child: DetailedTrendChart(
+                                    values: _chartValues,
+                                    labels: _chartLabels,
+                                    trendType: _selectedTrend,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _bottomMetric(
+                                        icon: Icons.show_chart_rounded,
+                                        label: 'Average',
+                                        value: _averageValue,
+                                      ),
+                                    ),
+                                    _verticalDivider(),
+                                    Expanded(
+                                      child: _bottomMetric(
+                                        icon: Icons.scale_outlined,
+                                        label: 'Latest',
+                                        value: _latestValue,
+                                      ),
+                                    ),
+                                    _verticalDivider(),
+                                    Expanded(
+                                      child: _bottomMetric(
+                                        icon: Icons.south_rounded,
+                                        label: 'Change',
+                                        value: _changeValue,
+                                        valueColor: successGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _bottomMetric(
-                                  icon: Icons.show_chart_rounded,
-                                  label: 'Average',
-                                  value: _averageValue,
-                                ),
-                              ),
-                              _verticalDivider(),
-                              Expanded(
-                                child: _bottomMetric(
-                                  icon: Icons.scale_outlined,
-                                  label: 'Latest',
-                                  value: _latestValue,
-                                ),
-                              ),
-                              _verticalDivider(),
-                              Expanded(
-                                child: _bottomMetric(
-                                  icon: Icons.south_rounded,
-                                  label: 'Change',
-                                  value: _changeValue,
-                                  valueColor: successGreen,
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -839,7 +1020,10 @@ class _DetailedTrendChartPainter extends CustomPainter {
     final points = <Offset>[];
 
     for (int i = 0; i < values.length; i++) {
-      final x = left + (chartWidth * i / (values.length - 1));
+      final horizontalPosition =
+          values.length == 1 ? 0.5 : i / (values.length - 1);
+
+      final x = left + (chartWidth * horizontalPosition);
       final normalizedValue = (values[i] - minimum) / safeRange;
       final y = bottom - (normalizedValue * chartHeight * 0.78) - 18;
 
