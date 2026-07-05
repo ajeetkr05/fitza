@@ -459,32 +459,144 @@ class ProgressDashboardScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const SizedBox(
-            height: 155,
-            child: _SimpleWeightChart(),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 9,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F7EC),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              '↓ 1.2 kg this week',
-              style: TextStyle(
-                color: successGreen,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          StreamBuilder<List<WeightEntry>>(
+            stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const SizedBox(
+                  height: 155,
+                  child: Center(
+                    child: Text(
+                      'Could not load weight trend.',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData) {
+                return const SizedBox(
+                  height: 155,
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              final entries = snapshot.data!;
+
+              if (entries.isEmpty) {
+                return const SizedBox(
+                  height: 155,
+                  child: Center(
+                    child: Text(
+                      'Add a weight entry to see your trend.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF667085),
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final chartEntries =
+                  entries.length > 7 ? entries.sublist(entries.length - 7) : entries;
+
+              final values =
+                  chartEntries.map((entry) => entry.weightKg).toList();
+
+              final labels = chartEntries
+                  .map((entry) => _weightChartLabel(entry.recordedAt))
+                  .toList();
+
+              final latestEntry = entries.last;
+              final previousEntry =
+                  entries.length >= 2 ? entries[entries.length - 2] : null;
+
+              String changeText;
+              Color changeTextColor;
+              Color changeBackgroundColor;
+
+              if (previousEntry == null) {
+                changeText = 'Latest saved entry';
+                changeTextColor = primaryBlue;
+                changeBackgroundColor = const Color(0xFFEAF3FF);
+              } else {
+                final changeKg = latestEntry.weightKg - previousEntry.weightKg;
+
+                if (changeKg < 0) {
+                  changeText =
+                      '↓ ${changeKg.abs().toStringAsFixed(1)} kg vs previous entry';
+                  changeTextColor = successGreen;
+                  changeBackgroundColor = const Color(0xFFE8F7EC);
+                } else if (changeKg > 0) {
+                  changeText =
+                      '↑ ${changeKg.toStringAsFixed(1)} kg vs previous entry';
+                  changeTextColor = Colors.orange;
+                  changeBackgroundColor = const Color(0xFFFFF4E5);
+                } else {
+                  changeText = 'No change vs previous entry';
+                  changeTextColor = primaryBlue;
+                  changeBackgroundColor = const Color(0xFFEAF3FF);
+                }
+              }
+
+              return Column(
+                children: [
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 155,
+                    child: _SimpleWeightChart(
+                      values: values,
+                      labels: labels,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: changeBackgroundColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      changeText,
+                      style: TextStyle(
+                        color: changeTextColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
+  }
+
+  String _weightChartLabel(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${date.day} ${months[date.month - 1]}';
   }
 
   Widget _recentWorkoutsCard(BuildContext context) {
@@ -673,20 +785,41 @@ class ProgressDashboardScreen extends StatelessWidget {
 }
 
 class _SimpleWeightChart extends StatelessWidget {
-  const _SimpleWeightChart();
+  final List<double> values;
+  final List<String> labels;
+
+  const _SimpleWeightChart({
+    required this.values,
+    required this.labels,
+  });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _WeightChartPainter(),
+      painter: _WeightChartPainter(
+        values: values,
+        labels: labels,
+      ),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class _WeightChartPainter extends CustomPainter {
+  final List<double> values;
+  final List<String> labels;
+
+  _WeightChartPainter({
+    required this.values,
+    required this.labels,
+  });
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) {
+      return;
+    }
+
     final gridPaint = Paint()
       ..color = const Color(0xFFE1E7F0)
       ..strokeWidth = 1;
@@ -705,53 +838,74 @@ class _WeightChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
+    const topPadding = 10.0;
+    const bottomPadding = 28.0;
+    const sidePadding = 8.0;
+
+    final chartWidth = size.width - (sidePadding * 2);
+    final chartHeight = size.height - topPadding - bottomPadding;
+
     for (int i = 0; i < 4; i++) {
-      final y = 10 + i * (size.height - 30) / 3;
+      final y = topPadding + i * chartHeight / 3;
+
       canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
+        Offset(sidePadding, y),
+        Offset(size.width - sidePadding, y),
         gridPaint,
       );
     }
 
-    final points = [
-      Offset(size.width * 0.05, size.height * 0.36),
-      Offset(size.width * 0.20, size.height * 0.66),
-      Offset(size.width * 0.36, size.height * 0.48),
-      Offset(size.width * 0.51, size.height * 0.57),
-      Offset(size.width * 0.67, size.height * 0.40),
-      Offset(size.width * 0.82, size.height * 0.15),
-      Offset(size.width * 0.95, size.height * 0.47),
-    ];
+    final minimum = values.reduce((a, b) => a < b ? a : b);
+    final maximum = values.reduce((a, b) => a > b ? a : b);
 
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    final originalRange = maximum - minimum;
+    final chartRange = originalRange == 0 ? 1.0 : originalRange;
 
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
+    final points = <Offset>[];
+
+    for (int i = 0; i < values.length; i++) {
+      final horizontalPosition =
+          values.length == 1 ? 0.5 : i / (values.length - 1);
+
+      final x = sidePadding + (chartWidth * horizontalPosition);
+
+      final normalizedValue = (values[i] - minimum) / chartRange;
+      final y = topPadding +
+          chartHeight -
+          (normalizedValue * chartHeight * 0.72) -
+          (chartHeight * 0.14);
+
+      points.add(Offset(x, y));
     }
 
-    canvas.drawPath(path, linePaint);
+    if (points.length > 1) {
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+
+      for (int i = 1; i < points.length; i++) {
+        path.lineTo(points[i].dx, points[i].dy);
+      }
+
+      canvas.drawPath(path, linePaint);
+    }
 
     for (final point in points) {
       canvas.drawCircle(point, 5, pointPaint);
       canvas.drawCircle(point, 5, pointBorderPaint);
     }
 
-    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-    for (int i = 0; i < labels.length; i++) {
+    for (final index in _labelIndexes(labels.length)) {
       final textPainter = TextPainter(
         text: TextSpan(
-          text: labels[i],
+          text: labels[index],
           style: const TextStyle(
             color: Color(0xFF5B6475),
-            fontSize: 12,
+            fontSize: 11,
           ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
 
-      final x = points[i].dx - (textPainter.width / 2);
+      final x = points[index].dx - (textPainter.width / 2);
 
       textPainter.paint(
         canvas,
@@ -760,8 +914,20 @@ class _WeightChartPainter extends CustomPainter {
     }
   }
 
+  List<int> _labelIndexes(int length) {
+    if (length <= 3) {
+      return List.generate(length, (index) => index);
+    }
+
+    return [
+      0,
+      ((length - 1) / 2).round(),
+      length - 1,
+    ];
+  }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
+  bool shouldRepaint(covariant _WeightChartPainter oldDelegate) {
+    return oldDelegate.values != values || oldDelegate.labels != labels;
   }
 }
