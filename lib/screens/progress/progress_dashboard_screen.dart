@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
+import 'exercise_history/exercise_history_screen.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
@@ -172,6 +173,14 @@ class ProgressDashboardScreen extends StatelessWidget {
                       context,
                       icon: Icons.history_rounded,
                       label: 'Exercise History',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ExerciseHistoryScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
