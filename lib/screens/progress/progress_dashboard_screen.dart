@@ -439,7 +439,14 @@ class ProgressDashboardScreen extends StatelessWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => _showComingSoon(context, 'View Trends'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TrendsScreen(),
+                    ),
+                  );
+                },
                 child: const Row(
                   children: [
                     Text(

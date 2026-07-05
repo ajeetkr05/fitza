@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../trends/weight_trend_screen.dart';
+import '../trends/trends_screen.dart';
 
 class WeightUpdatedScreen extends StatelessWidget {
   final double weight;
@@ -175,7 +175,7 @@ class WeightUpdatedScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WeightTrendScreen(
+                        builder: (_) => const TrendsScreen(
                           initialTrendType: 'Weight',
                           initialTimeRange: 'Monthly',
                         ),
