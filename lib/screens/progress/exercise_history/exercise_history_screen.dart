@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/progress/workout_entry.dart';
+import '../../../services/progress/workout_firestore_service.dart';
 import 'exercise_detail_screen.dart';
 
 class ExerciseHistoryScreen extends StatefulWidget {
@@ -18,55 +20,181 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
 
   String _selectedCategory = 'Gym';
 
-  final List<Map<String, String>> _allExercises = [
-    {
-      'name': 'Bench Press',
-      'category': 'Gym',
-      'lastLogged': 'Last logged 2 days ago',
-      'details': '30 kg × 10 reps × 3 sets',
-    },
-    {
-      'name': 'Squats',
-      'category': 'Gym',
-      'lastLogged': 'Last logged 3 days ago',
-      'details': '40 kg × 8 reps × 3 sets',
-    },
-    {
-      'name': 'Push-ups',
-      'category': 'Calisthenics',
-      'lastLogged': 'Last logged 5 days ago',
-      'details': '15 reps × 3 sets',
-    },
-    {
-      'name': 'Yoga Flow',
-      'category': 'Yoga',
-      'lastLogged': 'Last logged 1 week ago',
-      'details': '30 min session',
-    },
-    {
-      'name': 'Running',
-      'category': 'Cardio',
-      'lastLogged': 'Last logged 2 weeks ago',
-      'details': '4.5 km in 30 min',
-    },
-  ];
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  List<Map<String, String>> get _filteredExercises {
+  List<_ExerciseSummary> _buildExerciseSummaries(
+    List<WorkoutEntry> workouts,
+  ) {
+    final latestExerciseByKey = <String, _ExerciseSummary>{};
+
+    for (final workout in workouts) {
+      for (final exercise in workout.exercises) {
+        final rawName = exercise['name'];
+        final exerciseName = rawName?.toString().trim() ?? '';
+
+        if (exerciseName.isEmpty) {
+          continue;
+        }
+
+        final key =
+            '${workout.workoutType.toLowerCase()}|${exerciseName.toLowerCase()}';
+
+        latestExerciseByKey[key] = _ExerciseSummary(
+          name: exerciseName,
+          category: workout.workoutType,
+          details: _exerciseDetails(workout, exercise),
+          recordedAt: workout.recordedAt,
+        );
+      }
+    }
+
+    final summaries = latestExerciseByKey.values.toList();
+
+    summaries.sort(
+      (first, second) => second.recordedAt.compareTo(first.recordedAt),
+    );
+
+    return summaries;
+  }
+
+  List<_ExerciseSummary> _filteredExercises(
+    List<_ExerciseSummary> exercises,
+  ) {
     final searchText = _searchController.text.trim().toLowerCase();
 
-    return _allExercises.where((exercise) {
-      final matchesCategory = exercise['category'] == _selectedCategory;
-      final matchesSearch =
-          exercise['name']!.toLowerCase().contains(searchText);
+    return exercises.where((exercise) {
+      final matchesCategory = exercise.category == _selectedCategory;
+      final matchesSearch = exercise.name.toLowerCase().contains(searchText);
 
       return matchesCategory && matchesSearch;
     }).toList();
+  }
+
+  String _exerciseDetails(
+    WorkoutEntry workout,
+    Map<String, dynamic> exercise,
+  ) {
+    if (workout.workoutType == 'Gym') {
+      final parts = <String>[];
+
+      final weight = _numberValue(exercise['weightKg']);
+      final reps = _numberValue(exercise['reps']);
+      final sets = _numberValue(exercise['sets']);
+
+      if (weight != null) {
+        parts.add('${_formatNumber(weight)} kg');
+      }
+
+      if (reps != null) {
+        parts.add('${_formatNumber(reps)} reps');
+      }
+
+      if (sets != null) {
+        parts.add('${_formatNumber(sets)} sets');
+      }
+
+      return parts.isEmpty
+          ? '${workout.durationMinutes} min workout'
+          : parts.join(' × ');
+    }
+
+    if (workout.workoutType == 'Cardio') {
+      final parts = <String>[];
+
+      final distance = _numberValue(exercise['distanceKm']);
+      final duration = _numberValue(exercise['durationMinutes']);
+      final steps = _numberValue(exercise['steps']);
+      final calories = _numberValue(exercise['caloriesBurned']);
+
+      if (distance != null) {
+        parts.add('${_formatNumber(distance)} km');
+      }
+
+      if (duration != null) {
+        parts.add('${_formatNumber(duration)} min');
+      }
+
+      if (steps != null) {
+        parts.add('${_formatNumber(steps)} steps');
+      }
+
+      if (calories != null) {
+        parts.add('${_formatNumber(calories)} kcal');
+      }
+
+      return parts.isEmpty
+          ? '${workout.durationMinutes} min workout'
+          : parts.join(' • ');
+    }
+
+    final parts = <String>[];
+
+    final duration = _numberValue(exercise['durationMinutes']);
+    final sets = _numberValue(exercise['sets']);
+    final difficulty = exercise['difficulty']?.toString().trim() ?? '';
+
+    if (duration != null) {
+      parts.add('${_formatNumber(duration)} min');
+    } else {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    if (sets != null) {
+      parts.add('${_formatNumber(sets)} sets');
+    }
+
+    if (difficulty.isNotEmpty) {
+      parts.add(difficulty);
+    }
+
+    return parts.join(' • ');
+  }
+
+  num? _numberValue(dynamic value) {
+    if (value is num) {
+      return value;
+    }
+
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  String _formatNumber(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
+  }
+
+  String _lastLoggedText(DateTime date) {
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    final difference = todayOnly.difference(dateOnly).inDays;
+
+    if (difference <= 0) {
+      return 'Last logged today';
+    }
+
+    if (difference == 1) {
+      return 'Last logged yesterday';
+    }
+
+    if (difference < 7) {
+      return 'Last logged $difference days ago';
+    }
+
+    if (difference < 14) {
+      return 'Last logged 1 week ago';
+    }
+
+    final weeks = difference ~/ 7;
+    return 'Last logged $weeks weeks ago';
   }
 
   IconData _categoryIcon(String category) {
@@ -82,14 +210,14 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     }
   }
 
-  void _openExerciseDetail(Map<String, String> exercise) {
+  void _openExerciseDetail(_ExerciseSummary exercise) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ExerciseDetailScreen(
-          exerciseName: exercise['name']!,
-          workoutType: exercise['category']!,
-          latestDetails: exercise['details']!,
+          exerciseName: exercise.name,
+          workoutType: exercise.category,
+          latestDetails: exercise.details,
         ),
       ),
     );
@@ -97,8 +225,6 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final exercises = _filteredExercises;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
@@ -131,7 +257,6 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                 ],
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
@@ -168,9 +293,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 22),
-
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -197,9 +320,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 34),
-
                     const Text(
                       'Recent Exercises',
                       style: TextStyle(
@@ -208,44 +329,106 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 18),
+                    StreamBuilder<List<WorkoutEntry>>(
+                      stream: WorkoutFirestoreService.instance
+                          .getWorkoutEntriesStream(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return _statusCard(
+                            icon: Icons.error_outline_rounded,
+                            message: 'Could not load your exercise history.',
+                            iconColor: Colors.red,
+                          );
+                        }
 
-                    if (exercises.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(28),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Column(
-                          children: [
-                            Icon(
-                              Icons.search_off_outlined,
-                              color: greyText,
-                              size: 42,
-                            ),
-                            SizedBox(height: 12),
-                            Text(
-                              'No exercises found',
-                              style: TextStyle(
-                                color: darkText,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ...exercises.map(_exerciseCard),
+                        if (!snapshot.hasData) {
+                          return _statusCard(
+                            icon: Icons.hourglass_top_rounded,
+                            message: 'Loading your saved workouts...',
+                            iconColor: primaryBlue,
+                            isLoading: true,
+                          );
+                        }
+
+                        final allExercises =
+                            _buildExerciseSummaries(snapshot.data!);
+
+                        final exercises = _filteredExercises(allExercises);
+
+                        if (allExercises.isEmpty) {
+                          return _statusCard(
+                            icon: Icons.fitness_center_outlined,
+                            message:
+                                'Save a workout to see your exercise history.',
+                            iconColor: greyText,
+                          );
+                        }
+
+                        if (exercises.isEmpty) {
+                          return _statusCard(
+                            icon: Icons.search_off_outlined,
+                            message:
+                                'No $_selectedCategory exercises found.',
+                            iconColor: greyText,
+                          );
+                        }
+
+                        return Column(
+                          children: exercises
+                              .map(_exerciseCard)
+                              .toList(),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _statusCard({
+    required IconData icon,
+    required String message,
+    required Color iconColor,
+    bool isLoading = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          if (isLoading)
+            const SizedBox(
+              height: 42,
+              width: 42,
+              child: CircularProgressIndicator(),
+            )
+          else
+            Icon(
+              icon,
+              color: iconColor,
+              size: 42,
+            ),
+          const SizedBox(height: 14),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: darkText,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -297,9 +480,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     );
   }
 
-  Widget _exerciseCard(Map<String, String> exercise) {
-    final category = exercise['category']!;
-
+  Widget _exerciseCard(_ExerciseSummary exercise) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: InkWell(
@@ -332,7 +513,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
-                  _categoryIcon(category),
+                  _categoryIcon(exercise.category),
                   color: primaryBlue,
                   size: 38,
                 ),
@@ -343,7 +524,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      exercise['name']!,
+                      exercise.name,
                       style: const TextStyle(
                         color: darkText,
                         fontSize: 24,
@@ -359,21 +540,21 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                         ),
                         children: [
                           TextSpan(
-                            text: category,
+                            text: exercise.category,
                             style: const TextStyle(
                               color: primaryBlue,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           TextSpan(
-                            text: '  •  ${exercise['lastLogged']}',
+                            text: '  •  ${_lastLoggedText(exercise.recordedAt)}',
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      exercise['details']!,
+                      exercise.details,
                       style: const TextStyle(
                         color: darkText,
                         fontSize: 17,
@@ -393,4 +574,18 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
       ),
     );
   }
+}
+
+class _ExerciseSummary {
+  final String name;
+  final String category;
+  final String details;
+  final DateTime recordedAt;
+
+  const _ExerciseSummary({
+    required this.name,
+    required this.category,
+    required this.details,
+    required this.recordedAt,
+  });
 }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/progress/workout_entry.dart';
+import '../../../services/progress/workout_firestore_service.dart';
+import '../log_workout/cardio_workout_screen.dart';
 import '../log_workout/gym_workout_screen.dart';
+import '../log_workout/yoga_calisthenics_screen.dart';
 
 class ExerciseDetailScreen extends StatelessWidget {
   final String exerciseName;
@@ -22,7 +26,9 @@ class ExerciseDetailScreen extends StatelessWidget {
   bool get _isGym => workoutType == 'Gym';
 
   String get _progressTitle {
-    if (_isGym) return 'Progress Comparison';
+    if (_isGym) {
+      return 'Progress Comparison';
+    }
 
     if (workoutType == 'Cardio') {
       return 'Activity Progress';
@@ -32,181 +38,320 @@ class ExerciseDetailScreen extends StatelessWidget {
   }
 
   String get _progressSubtitle {
-    if (_isGym) return 'Weight lifted over time';
+    if (_isGym) {
+      return 'Weight lifted over time';
+    }
 
     if (workoutType == 'Cardio') {
-      return 'Duration and consistency over time';
+      return 'Distance or duration over time';
     }
 
-    return 'Session consistency over time';
+    return 'Session duration over time';
   }
 
-  List<Map<String, String>> get _historyItems {
-    switch (workoutType) {
-      case 'Yoga':
-        return [
-          {
-            'date': 'May 16',
-            'details': '30 min session • Easy',
-          },
-          {
-            'date': 'May 9',
-            'details': '35 min session • Moderate',
-          },
-          {
-            'date': 'May 2',
-            'details': '25 min session • Easy',
-          },
-        ];
+  List<_ExerciseOccurrence> _exerciseOccurrences(
+    List<WorkoutEntry> workouts,
+  ) {
+    final occurrences = <_ExerciseOccurrence>[];
 
-      case 'Calisthenics':
-        return [
-          {
-            'date': 'May 16',
-            'details': '3 sets × 15 push-ups',
-          },
-          {
-            'date': 'May 9',
-            'details': '3 sets × 12 push-ups',
-          },
-          {
-            'date': 'May 2',
-            'details': '2 sets × 10 push-ups',
-          },
-        ];
+    for (final workout in workouts) {
+      if (workout.workoutType != workoutType) {
+        continue;
+      }
 
-      case 'Cardio':
-        return [
-          {
-            'date': 'May 16',
-            'details': '4.5 km • 30 min • 6,500 steps',
-          },
-          {
-            'date': 'May 9',
-            'details': '4.1 km • 32 min • 6,100 steps',
-          },
-          {
-            'date': 'May 2',
-            'details': '3.8 km • 29 min • 5,700 steps',
-          },
-        ];
+      for (final exercise in workout.exercises) {
+        final savedName = exercise['name']?.toString().trim() ?? '';
 
-      default:
-        return [
-          {
-            'date': 'May 16',
-            'details': '4 sets × 8 reps × 75 kg',
-          },
-          {
-            'date': 'May 9',
-            'details': '4 sets × 8 reps × 70 kg',
-          },
-          {
-            'date': 'May 2',
-            'details': '4 sets × 6 reps × 65 kg',
-          },
-        ];
+        if (savedName.toLowerCase() == exerciseName.toLowerCase()) {
+          occurrences.add(
+            _ExerciseOccurrence(
+              workout: workout,
+              exercise: exercise,
+            ),
+          );
+        }
+      }
     }
+
+    occurrences.sort(
+      (first, second) =>
+          second.workout.recordedAt.compareTo(first.workout.recordedAt),
+    );
+
+    return occurrences;
   }
 
-  List<Map<String, String>> get _statItems {
-    switch (workoutType) {
-      case 'Yoga':
-        return [
-          {
-            'label': 'Latest',
-            'value': '30 min',
-            'icon': 'latest',
-          },
-          {
-            'label': 'Last Session',
-            'value': '35 min',
-            'icon': 'calendar',
-          },
-          {
-            'label': 'One Week Ago',
-            'value': '25 min',
-            'icon': 'history',
-          },
-          {
-            'label': 'Longest Session',
-            'value': '45 min',
-            'icon': 'trophy',
-          },
-        ];
-
-      case 'Calisthenics':
-        return [
-          {
-            'label': 'Latest',
-            'value': '15 reps',
-            'icon': 'latest',
-          },
-          {
-            'label': 'Last Workout',
-            'value': '12 reps',
-            'icon': 'calendar',
-          },
-          {
-            'label': 'One Week Ago',
-            'value': '10 reps',
-            'icon': 'history',
-          },
-          {
-            'label': 'Personal Best',
-            'value': '20 reps',
-            'icon': 'trophy',
-          },
-        ];
-
-      case 'Cardio':
-        return [
-          {
-            'label': 'Latest',
-            'value': '4.5 km',
-            'icon': 'latest',
-          },
-          {
-            'label': 'Last Activity',
-            'value': '4.1 km',
-            'icon': 'calendar',
-          },
-          {
-            'label': 'One Week Ago',
-            'value': '3.8 km',
-            'icon': 'history',
-          },
-          {
-            'label': 'Best Distance',
-            'value': '6.2 km',
-            'icon': 'trophy',
-          },
-        ];
-
-      default:
-        return [
-          {
-            'label': 'Latest',
-            'value': '80 kg × 8',
-            'icon': 'latest',
-          },
-          {
-            'label': 'Last Workout',
-            'value': '75 kg × 8',
-            'icon': 'calendar',
-          },
-          {
-            'label': 'One Week Ago',
-            'value': '70 kg × 8',
-            'icon': 'history',
-          },
-          {
-            'label': 'Personal Best',
-            'value': '90 kg × 6',
-            'icon': 'trophy',
-          },
-        ];
+  num? _numberValue(dynamic value) {
+    if (value is num) {
+      return value;
     }
+
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  String _formatNumber(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
+  }
+
+  double _metricValue(_ExerciseOccurrence occurrence) {
+    if (_isGym) {
+      return _numberValue(occurrence.exercise['weightKg'])?.toDouble() ??
+          _numberValue(occurrence.exercise['reps'])?.toDouble() ??
+          0;
+    }
+
+    if (workoutType == 'Cardio') {
+      return _numberValue(occurrence.exercise['distanceKm'])?.toDouble() ??
+          _numberValue(occurrence.exercise['durationMinutes'])?.toDouble() ??
+          occurrence.workout.durationMinutes.toDouble();
+    }
+
+    return _numberValue(occurrence.exercise['durationMinutes'])?.toDouble() ??
+        occurrence.workout.durationMinutes.toDouble();
+  }
+
+  String _metricUnit(List<_ExerciseOccurrence> occurrences) {
+    if (_isGym) {
+      return 'kg';
+    }
+
+    if (workoutType == 'Cardio') {
+      final hasDistance = occurrences.any(
+        (occurrence) =>
+            _numberValue(occurrence.exercise['distanceKm']) != null,
+      );
+
+      return hasDistance ? 'km' : 'min';
+    }
+
+    return 'min';
+  }
+
+  String _metricLabel(List<_ExerciseOccurrence> occurrences) {
+    if (_isGym) {
+      return 'Weight (kg)';
+    }
+
+    if (workoutType == 'Cardio') {
+      return _metricUnit(occurrences) == 'km'
+          ? 'Distance (km)'
+          : 'Duration (min)';
+    }
+
+    return 'Duration (min)';
+  }
+
+  String _metricDisplay(_ExerciseOccurrence occurrence) {
+    if (_isGym) {
+      final weight = _numberValue(occurrence.exercise['weightKg']);
+      final reps = _numberValue(occurrence.exercise['reps']);
+
+      if (weight != null && reps != null) {
+        return '${_formatNumber(weight)} kg × ${_formatNumber(reps)}';
+      }
+
+      if (weight != null) {
+        return '${_formatNumber(weight)} kg';
+      }
+
+      if (reps != null) {
+        return '${_formatNumber(reps)} reps';
+      }
+    }
+
+    if (workoutType == 'Cardio') {
+      final distance = _numberValue(occurrence.exercise['distanceKm']);
+
+      if (distance != null) {
+        return '${_formatNumber(distance)} km';
+      }
+
+      final duration = _numberValue(occurrence.exercise['durationMinutes']);
+
+      if (duration != null) {
+        return '${_formatNumber(duration)} min';
+      }
+    }
+
+    final duration = _numberValue(occurrence.exercise['durationMinutes']);
+
+    if (duration != null) {
+      return '${_formatNumber(duration)} min';
+    }
+
+    return '${occurrence.workout.durationMinutes} min';
+  }
+
+  String _historyDetails(_ExerciseOccurrence occurrence) {
+    if (_isGym) {
+      final parts = <String>[];
+
+      final weight = _numberValue(occurrence.exercise['weightKg']);
+      final reps = _numberValue(occurrence.exercise['reps']);
+      final sets = _numberValue(occurrence.exercise['sets']);
+
+      if (weight != null) {
+        parts.add('${_formatNumber(weight)} kg');
+      }
+
+      if (reps != null) {
+        parts.add('${_formatNumber(reps)} reps');
+      }
+
+      if (sets != null) {
+        parts.add('${_formatNumber(sets)} sets');
+      }
+
+      return parts.isEmpty
+          ? '${occurrence.workout.durationMinutes} min workout'
+          : parts.join(' × ');
+    }
+
+    if (workoutType == 'Cardio') {
+      final parts = <String>[];
+
+      final distance = _numberValue(occurrence.exercise['distanceKm']);
+      final duration = _numberValue(occurrence.exercise['durationMinutes']);
+      final steps = _numberValue(occurrence.exercise['steps']);
+      final calories = _numberValue(occurrence.exercise['caloriesBurned']);
+
+      if (distance != null) {
+        parts.add('${_formatNumber(distance)} km');
+      }
+
+      if (duration != null) {
+        parts.add('${_formatNumber(duration)} min');
+      }
+
+      if (steps != null) {
+        parts.add('${_formatNumber(steps)} steps');
+      }
+
+      if (calories != null) {
+        parts.add('${_formatNumber(calories)} kcal');
+      }
+
+      return parts.isEmpty
+          ? '${occurrence.workout.durationMinutes} min workout'
+          : parts.join(' • ');
+    }
+
+    final parts = <String>[];
+
+    final duration = _numberValue(occurrence.exercise['durationMinutes']);
+    final sets = _numberValue(occurrence.exercise['sets']);
+    final difficulty = occurrence.exercise['difficulty']?.toString() ?? '';
+
+    parts.add(
+      duration == null
+          ? '${occurrence.workout.durationMinutes} min'
+          : '${_formatNumber(duration)} min',
+    );
+
+    if (sets != null) {
+      parts.add('${_formatNumber(sets)} sets');
+    }
+
+    if (difficulty.trim().isNotEmpty) {
+      parts.add(difficulty.trim());
+    }
+
+    return parts.join(' • ');
+  }
+
+  List<_DetailStat> _statItems(
+    List<_ExerciseOccurrence> occurrences,
+  ) {
+    final latest = occurrences.first;
+    final previous = occurrences.length >= 2 ? occurrences[1] : null;
+
+    final best = occurrences.reduce(
+      (bestOccurrence, occurrence) =>
+          _metricValue(occurrence) > _metricValue(bestOccurrence)
+              ? occurrence
+              : bestOccurrence,
+    );
+
+    return [
+      _DetailStat(
+        label: 'Latest',
+        value: _metricDisplay(latest),
+        icon: Icons.show_chart_rounded,
+      ),
+      _DetailStat(
+        label: workoutType == 'Cardio' ? 'Last Activity' : 'Last Session',
+        value: previous == null ? 'No earlier entry' : _metricDisplay(previous),
+        icon: Icons.calendar_month_outlined,
+      ),
+      _DetailStat(
+        label: _isGym
+            ? 'Best Weight'
+            : workoutType == 'Cardio'
+                ? 'Best Result'
+                : 'Longest Session',
+        value: _metricDisplay(best),
+        icon: Icons.emoji_events_outlined,
+      ),
+      _DetailStat(
+        label: 'Sessions',
+        value: occurrences.length.toString(),
+        icon: Icons.history_outlined,
+      ),
+    ];
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${date.day} ${months[date.month - 1]}';
+  }
+
+  void _logWorkoutAgain(BuildContext context) {
+    if (workoutType == 'Cardio') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CardioWorkoutScreen(),
+        ),
+      );
+      return;
+    }
+
+    if (workoutType == 'Yoga' || workoutType == 'Calisthenics') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => YogaCalisthenicsScreen(
+            workoutType: workoutType,
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const GymWorkoutScreen(),
+      ),
+    );
   }
 
   @override
@@ -214,214 +359,339 @@ class ExerciseDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back_rounded,
-                      color: primaryBlue,
-                      size: 31,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      exerciseName,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: darkText,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.more_vert_rounded,
-                    color: primaryBlue,
-                    size: 30,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 26),
-
-              _statsRow(),
-
-              const SizedBox(height: 28),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: _cardDecoration(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _progressTitle,
-                                style: const TextStyle(
-                                  color: darkText,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                _progressSubtitle,
-                                style: const TextStyle(
-                                  color: greyText,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.trending_up_rounded,
-                                  color: successGreen,
-                                  size: 22,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  '+14.3%',
-                                  style: TextStyle(
-                                    color: successGreen,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'vs 4 weeks ago',
-                              style: TextStyle(
-                                color: greyText,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-
-                    if (_isGym) ...[
-                      const Text(
-                        'Weight (kg)',
-                        style: TextStyle(
-                          color: darkText,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const SizedBox(
-                        height: 250,
-                        child: ExerciseProgressChart(),
-                      ),
-                    ] else
-                      Container(
-                        height: 190,
-                        width: double.infinity,
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Session consistency and progress\nwill appear here.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: greyText,
-                            fontSize: 17,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                  ],
+        child: StreamBuilder<List<WorkoutEntry>>(
+          stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _screenLayout(
+                context,
+                _statusCard(
+                  icon: Icons.error_outline_rounded,
+                  message: 'Could not load this exercise history.',
+                  iconColor: Colors.red,
                 ),
-              ),
+              );
+            }
 
-              const SizedBox(height: 30),
-
-              const Text(
-                'Workout History',
-                style: TextStyle(
-                  color: darkText,
-                  fontSize: 25,
-                  fontWeight: FontWeight.bold,
+            if (!snapshot.hasData) {
+              return _screenLayout(
+                context,
+                _statusCard(
+                  icon: Icons.hourglass_top_rounded,
+                  message: 'Loading exercise details...',
+                  iconColor: primaryBlue,
+                  isLoading: true,
                 ),
-              ),
+              );
+            }
 
-              const SizedBox(height: 16),
+            final occurrences = _exerciseOccurrences(snapshot.data!);
 
-              ..._historyItems.map(
-                (item) => _historyCard(
-                  date: item['date']!,
-                  details: item['details']!,
-                ),
-              ),
+            if (occurrences.isEmpty) {
+              return _screenLayout(
+                context,
+                _emptyExerciseContent(context),
+              );
+            }
 
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const GymWorkoutScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    _isGym
-                        ? 'Log This Exercise Again'
-                        : 'Log This Workout Again',
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            return _screenLayout(
+              context,
+              _exerciseContent(context, occurrences),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _statsRow() {
-    final items = _statItems;
+  Widget _screenLayout(BuildContext context, Widget content) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: primaryBlue,
+                  size: 31,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  exerciseName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: darkText,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: 26),
+          content,
+        ],
+      ),
+    );
+  }
 
-    final icons = [
-      Icons.fitness_center_outlined,
-      Icons.calendar_month_outlined,
-      Icons.history_outlined,
-      Icons.emoji_events_outlined,
-    ];
+  Widget _exerciseContent(
+    BuildContext context,
+    List<_ExerciseOccurrence> occurrences,
+  ) {
+    final stats = _statItems(occurrences);
 
+    final oldestFirst = occurrences.reversed.toList();
+
+    final chartValues = oldestFirst
+        .map(_metricValue)
+        .toList();
+
+    final chartLabels = oldestFirst
+        .map((occurrence) => _formatDate(occurrence.workout.recordedAt))
+        .toList();
+
+    final latestValue = chartValues.last;
+    final firstValue = chartValues.first;
+    final change = latestValue - firstValue;
+    final unit = _metricUnit(occurrences);
+
+    String changeText;
+    Color changeColor;
+    IconData changeIcon;
+
+    if (chartValues.length < 2) {
+      changeText = 'First saved entry';
+      changeColor = primaryBlue;
+      changeIcon = Icons.remove_rounded;
+    } else if (change > 0) {
+      changeText = '↑ ${_formatNumber(change)} $unit';
+      changeColor = successGreen;
+      changeIcon = Icons.trending_up_rounded;
+    } else if (change < 0) {
+      changeText = '↓ ${_formatNumber(change.abs())} $unit';
+      changeColor = Colors.orange;
+      changeIcon = Icons.trending_down_rounded;
+    } else {
+      changeText = 'No change';
+      changeColor = primaryBlue;
+      changeIcon = Icons.remove_rounded;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _statsRow(stats),
+        const SizedBox(height: 28),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: _cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _progressTitle,
+                          style: const TextStyle(
+                            color: darkText,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _progressSubtitle,
+                          style: const TextStyle(
+                            color: greyText,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            changeIcon,
+                            color: changeColor,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            changeText,
+                            style: TextStyle(
+                              color: changeColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'vs first entry',
+                        style: TextStyle(
+                          color: greyText,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Text(
+                _metricLabel(occurrences),
+                style: const TextStyle(
+                  color: darkText,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 250,
+                child: ExerciseProgressChart(
+                  values: chartValues,
+                  labels: chartLabels,
+                  suffix: unit,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 30),
+        const Text(
+          'Workout History',
+          style: TextStyle(
+            color: darkText,
+            fontSize: 25,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...occurrences.map(
+          (occurrence) => _historyCard(
+            date: _formatDate(occurrence.workout.recordedAt),
+            details: _historyDetails(occurrence),
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 58,
+          child: ElevatedButton(
+            onPressed: () => _logWorkoutAgain(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Text(
+              _isGym ? 'Log This Exercise Again' : 'Log This Workout Again',
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyExerciseContent(BuildContext context) {
+    return Column(
+      children: [
+        _statusCard(
+          icon: Icons.history_toggle_off_rounded,
+          message: latestDetails.isEmpty
+              ? 'No saved history exists for this exercise yet.'
+              : latestDetails,
+          iconColor: greyText,
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 58,
+          child: ElevatedButton(
+            onPressed: () => _logWorkoutAgain(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Log Workout',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statusCard({
+    required IconData icon,
+    required String message,
+    required Color iconColor,
+    bool isLoading = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          if (isLoading)
+            const SizedBox(
+              height: 42,
+              width: 42,
+              child: CircularProgressIndicator(),
+            )
+          else
+            Icon(
+              icon,
+              color: iconColor,
+              size: 42,
+            ),
+          const SizedBox(height: 14),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: darkText,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statsRow(List<_DetailStat> items) {
     return Row(
       children: List.generate(items.length, (index) {
         return Expanded(
@@ -430,9 +700,9 @@ class ExerciseDetailScreen extends StatelessWidget {
               right: index == items.length - 1 ? 0 : 10,
             ),
             child: _statCard(
-              icon: icons[index],
-              label: items[index]['label']!,
-              value: items[index]['value']!,
+              icon: items[index].icon,
+              label: items[index].label,
+              value: items[index].value,
             ),
           ),
         );
@@ -541,11 +811,6 @@ class ExerciseDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: primaryBlue,
-              size: 30,
-            ),
           ],
         ),
       ),
@@ -567,21 +832,70 @@ class ExerciseDetailScreen extends StatelessWidget {
   }
 }
 
+class _ExerciseOccurrence {
+  final WorkoutEntry workout;
+  final Map<String, dynamic> exercise;
+
+  const _ExerciseOccurrence({
+    required this.workout,
+    required this.exercise,
+  });
+}
+
+class _DetailStat {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _DetailStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+}
+
 class ExerciseProgressChart extends StatelessWidget {
-  const ExerciseProgressChart({super.key});
+  final List<double> values;
+  final List<String> labels;
+  final String suffix;
+
+  const ExerciseProgressChart({
+    super.key,
+    required this.values,
+    required this.labels,
+    required this.suffix,
+  });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _ExerciseChartPainter(),
+      painter: _ExerciseChartPainter(
+        values: values,
+        labels: labels,
+        suffix: suffix,
+      ),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class _ExerciseChartPainter extends CustomPainter {
+  final List<double> values;
+  final List<String> labels;
+  final String suffix;
+
+  _ExerciseChartPainter({
+    required this.values,
+    required this.labels,
+    required this.suffix,
+  });
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) {
+      return;
+    }
+
     final gridPaint = Paint()
       ..color = const Color(0xFFD8E2F1)
       ..strokeWidth = 1;
@@ -600,9 +914,9 @@ class _ExerciseChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
-    final left = 38.0;
+    const left = 38.0;
     final right = size.width - 12;
-    final top = 18.0;
+    const top = 18.0;
     final bottom = size.height - 35;
 
     for (int i = 0; i < 4; i++) {
@@ -613,14 +927,25 @@ class _ExerciseChartPainter extends CustomPainter {
     canvas.drawLine(Offset(left, top), Offset(left, bottom), gridPaint);
     canvas.drawLine(Offset(left, bottom), Offset(right, bottom), gridPaint);
 
-    final chartWidth = right - left;
+    final minimum = values.reduce((a, b) => a < b ? a : b);
+    final maximum = values.reduce((a, b) => a > b ? a : b);
+    final range = maximum == minimum ? 1.0 : maximum - minimum;
 
-    final points = [
-      Offset(left + (chartWidth * 0.08), bottom - 62),
-      Offset(left + (chartWidth * 0.34), bottom - 48),
-      Offset(left + (chartWidth * 0.60), bottom - 48),
-      Offset(left + (chartWidth * 0.88), bottom - 82),
-    ];
+    final chartWidth = right - left;
+    final chartHeight = bottom - top;
+
+    final points = <Offset>[];
+
+    for (int i = 0; i < values.length; i++) {
+      final horizontalPosition =
+          values.length == 1 ? 0.5 : i / (values.length - 1);
+
+      final x = left + (chartWidth * horizontalPosition);
+      final normalisedValue = (values[i] - minimum) / range;
+      final y = bottom - (normalisedValue * chartHeight * 0.76) - 18;
+
+      points.add(Offset(x, y));
+    }
 
     final path = Path()..moveTo(points.first.dx, points.first.dy);
 
@@ -631,49 +956,50 @@ class _ExerciseChartPainter extends CustomPainter {
     canvas.drawPath(path, linePaint);
 
     for (int i = 0; i < points.length; i++) {
-      canvas.drawCircle(points[i], 8, pointPaint);
-      canvas.drawCircle(points[i], 8, borderPaint);
+      canvas.drawCircle(points[i], 7, pointPaint);
+      canvas.drawCircle(points[i], 7, borderPaint);
+
+      _drawCenteredLabel(
+        canvas,
+        '${_formatValue(values[i])} $suffix',
+        points[i].dx,
+        points[i].dy - 28,
+        fontSize: 11,
+      );
     }
 
-    _drawLabel(canvas, '65', Offset(points[0].dx - 10, points[0].dy - 28));
-    _drawLabel(canvas, '70', Offset(points[1].dx - 10, points[1].dy - 28));
-    _drawLabel(canvas, '70', Offset(points[2].dx - 10, points[2].dy - 28));
-    _drawLabel(canvas, '80', Offset(points[3].dx - 10, points[3].dy - 28));
-
-    _drawCenteredLabel(canvas, 'Apr 18', points[0].dx, bottom + 12);
-    _drawCenteredLabel(canvas, 'Apr 25', points[1].dx, bottom + 12);
-    _drawCenteredLabel(canvas, 'May 2', points[2].dx, bottom + 12);
-    _drawCenteredLabel(canvas, 'May 9', points[3].dx, bottom + 12);
+    for (int i = 0; i < labels.length; i++) {
+      _drawCenteredLabel(
+        canvas,
+        labels[i],
+        points[i].dx,
+        bottom + 12,
+        fontSize: 10,
+      );
+    }
   }
 
-  void _drawLabel(Canvas canvas, String text, Offset offset) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: const TextStyle(
-          color: Color(0xFF1555C0),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
+  String _formatValue(double value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
 
-    painter.paint(canvas, offset);
+    return value.toStringAsFixed(1);
   }
 
   void _drawCenteredLabel(
     Canvas canvas,
     String text,
     double centerX,
-    double y,
-  ) {
+    double y, {
+    required double fontSize,
+  }) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: const TextStyle(
-          color: Color(0xFF1555C0),
-          fontSize: 10,
+        style: TextStyle(
+          color: const Color(0xFF1555C0),
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -687,5 +1013,7 @@ class _ExerciseChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ExerciseChartPainter oldDelegate) {
+    return true;
+  }
 }
