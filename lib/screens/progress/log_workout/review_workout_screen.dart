@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/progress/workout_firestore_service.dart';
 import 'workout_saved_screen.dart';
 
-class ReviewWorkoutScreen extends StatelessWidget {
+class ReviewWorkoutScreen extends StatefulWidget {
   final List<Map<String, String>> exercises;
   final String notes;
   final String workoutType;
@@ -16,11 +17,73 @@ class ReviewWorkoutScreen extends StatelessWidget {
     required this.duration,
   });
 
+  @override
+  State<ReviewWorkoutScreen> createState() => _ReviewWorkoutScreenState();
+}
+
+class _ReviewWorkoutScreenState extends State<ReviewWorkoutScreen> {
   static const Color primaryBlue = Color(0xFF1555C0);
   static const Color darkText = Color(0xFF0B1B4D);
   static const Color greyText = Color(0xFF667085);
 
-  bool get _isGym => workoutType == 'Gym';
+  bool _isSaving = false;
+
+  bool get _isGym => widget.workoutType == 'Gym';
+
+  Future<void> _saveWorkout() async {
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await WorkoutFirestoreService.instance.saveWorkout(
+        workoutType: widget.workoutType,
+        duration: widget.duration,
+        notes: widget.notes,
+        exercises: widget.exercises,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkoutSavedScreen(
+            exerciseCount: widget.exercises.length,
+            workoutType: widget.workoutType,
+            duration: widget.duration,
+          ),
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Could not save workout: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save workout. Please check your connection and try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +98,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
               Row(
                 children: [
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isSaving ? null : () => Navigator.pop(context),
                     icon: const Icon(
                       Icons.arrow_back_rounded,
                       color: darkText,
@@ -56,13 +119,9 @@ class ReviewWorkoutScreen extends StatelessWidget {
                   const SizedBox(width: 48),
                 ],
               ),
-
               const SizedBox(height: 24),
-
               _summaryCard(),
-
               const SizedBox(height: 28),
-
               Text(
                 _isGym ? 'Exercises' : 'Workout Details',
                 style: const TextStyle(
@@ -71,13 +130,9 @@ class ReviewWorkoutScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 14),
-
-              ...exercises.map(_exerciseCard),
-
+              ...widget.exercises.map(_exerciseCard),
               const SizedBox(height: 24),
-
               const Text(
                 'Notes',
                 style: TextStyle(
@@ -86,18 +141,14 @@ class ReviewWorkoutScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 14),
-
               _notesCard(),
-
               const SizedBox(height: 28),
-
               SizedBox(
                 width: double.infinity,
                 height: 58,
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _isSaving ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: primaryBlue,
                     side: const BorderSide(color: primaryBlue, width: 2),
@@ -114,25 +165,12 @@ class ReviewWorkoutScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 14),
-
               SizedBox(
                 width: double.infinity,
                 height: 58,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => WorkoutSavedScreen(
-                          exerciseCount: exercises.length,
-                          workoutType: workoutType,
-                          duration: duration,
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: _isSaving ? null : _saveWorkout,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
@@ -140,13 +178,35 @@ class ReviewWorkoutScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    'Save Workout',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _isSaving
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Saving Workout...',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Text(
+                          'Save Workout',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -166,7 +226,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
           _summaryRow(
             icon: _workoutIcon(),
             title: 'Workout Type',
-            value: workoutType,
+            value: widget.workoutType,
           ),
           const Divider(height: 34),
           _summaryRow(
@@ -178,7 +238,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
           _summaryRow(
             icon: Icons.schedule_outlined,
             title: 'Duration',
-            value: duration,
+            value: widget.duration,
           ),
         ],
       ),
@@ -186,7 +246,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
   }
 
   IconData _workoutIcon() {
-    switch (workoutType) {
+    switch (widget.workoutType) {
       case 'Yoga':
         return Icons.self_improvement_outlined;
       case 'Calisthenics':
@@ -269,7 +329,7 @@ class ReviewWorkoutScreen extends StatelessWidget {
 
     final detailText = _isGym
         ? '$weight kg × $reps reps × $sets sets'
-        : workoutType == 'Cardio'
+        : widget.workoutType == 'Cardio'
             ? _cardioDetails(exercise)
             : sets.isEmpty || sets == '—'
                 ? '$reps min • ${exercise['difficulty'] ?? 'Easy'}'
@@ -354,7 +414,9 @@ class ReviewWorkoutScreen extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              notes.trim().isEmpty ? 'No notes added.' : notes,
+              widget.notes.trim().isEmpty
+                  ? 'No notes added.'
+                  : widget.notes,
               style: const TextStyle(
                 color: darkText,
                 fontSize: 18,
