@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'set_height_screen.dart';
+import '../../../services/progress/weight_firestore_service.dart';
+import 'bmi_preview_screen.dart';
 
 class AddWeightScreen extends StatefulWidget {
   const AddWeightScreen({super.key});
@@ -41,7 +43,7 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
     }
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     final weight = double.tryParse(_weightController.text.trim());
 
     if (weight == null || weight <= 0) {
@@ -53,16 +55,50 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SetHeightScreen(
-          weight: weight,
-          notes: _notesController.text.trim(),
-          selectedDate: _selectedDate,
+    try {
+      final savedHeight =
+          await WeightFirestoreService.instance.getSavedHeight();
+
+      if (!mounted) return;
+
+      if (savedHeight != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BmiPreviewScreen(
+              weight: weight,
+              height: savedHeight,
+              notes: _notesController.text.trim(),
+              selectedDate: _selectedDate,
+            ),
+          ),
+        );
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SetHeightScreen(
+            weight: weight,
+            notes: _notesController.text.trim(),
+            selectedDate: _selectedDate,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      debugPrint('Firestore height read error: $error');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not check your saved height. Please try again.',
+          ),
+        ),
+      );
+    }
   }
 
   String _formattedDate() {

@@ -5,6 +5,8 @@ import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
 import 'trends/trends_screen.dart';
+import '../../models/progress/weight_entry.dart';
+import '../../services/progress/weight_firestore_service.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
@@ -50,32 +52,80 @@ class ProgressDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 22),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.monitor_weight_outlined,
-                      iconColor: primaryBlue,
-                      title: 'Current Weight',
-                      value: '72.4',
-                      unit: 'kg',
-                      subtitle: '↓ 1.2 kg\nvs last week',
-                      subtitleColor: successGreen,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.favorite_border_rounded,
-                      iconColor: successGreen,
-                      title: 'BMI',
-                      value: '22.4',
-                      unit: '',
-                      subtitle: 'Healthy',
-                      subtitleColor: successGreen,
-                    ),
-                  ),
-                ],
+              StreamBuilder<List<WeightEntry>>(
+                stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _weightAndBmiCards(
+                      weightValue: '—',
+                      weightSubtitle: 'Could not load\nweight data',
+                      weightSubtitleColor: Colors.red,
+                      bmiValue: '—',
+                      bmiSubtitle: 'Try again',
+                      bmiSubtitleColor: Colors.red,
+                    );
+                  }
+
+                  if (!snapshot.hasData) {
+                    return _weightAndBmiCards(
+                      weightValue: '—',
+                      weightSubtitle: 'Loading...',
+                      weightSubtitleColor: primaryBlue,
+                      bmiValue: '—',
+                      bmiSubtitle: 'Loading...',
+                      bmiSubtitleColor: primaryBlue,
+                    );
+                  }
+
+                  final entries = snapshot.data!;
+
+                  if (entries.isEmpty) {
+                    return _weightAndBmiCards(
+                      weightValue: '—',
+                      weightSubtitle: 'No weight\nlogged yet',
+                      weightSubtitleColor: darkText,
+                      bmiValue: '—',
+                      bmiSubtitle: 'Add weight',
+                      bmiSubtitleColor: darkText,
+                    );
+                  }
+
+                  final latestEntry = entries.last;
+                  final previousEntry =
+                      entries.length >= 2 ? entries[entries.length - 2] : null;
+
+                  final changeKg = previousEntry == null
+                      ? null
+                      : latestEntry.weightKg - previousEntry.weightKg;
+
+                  final weightSubtitle = changeKg == null
+                      ? 'Latest entry'
+                      : changeKg == 0
+                          ? 'No change\nvs previous entry'
+                          : changeKg < 0
+                              ? '↓ ${changeKg.abs().toStringAsFixed(1)} kg\nvs previous entry'
+                              : '↑ ${changeKg.toStringAsFixed(1)} kg\nvs previous entry';
+
+                  final isWithinStandardRange =
+                      latestEntry.bmi >= 18.5 && latestEntry.bmi < 25;
+
+                  return _weightAndBmiCards(
+                    weightValue: latestEntry.weightKg.toStringAsFixed(1),
+                    weightSubtitle: weightSubtitle,
+                    weightSubtitleColor:
+                        changeKg == null || changeKg == 0
+                            ? primaryBlue
+                            : changeKg < 0
+                                ? successGreen
+                                : Colors.orange,
+                    bmiValue: latestEntry.bmi.toStringAsFixed(1),
+                    bmiSubtitle: isWithinStandardRange
+                        ? 'Within range'
+                        : 'Check trend',
+                    bmiSubtitleColor:
+                        isWithinStandardRange ? successGreen : Colors.orange,
+                  );
+                },
               ),
 
               const SizedBox(height: 12),
@@ -253,6 +303,43 @@ class ProgressDashboardScreen extends StatelessWidget {
           child: const Icon(
             Icons.notifications_none_rounded,
             color: darkText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _weightAndBmiCards({
+    required String weightValue,
+    required String weightSubtitle,
+    required Color weightSubtitleColor,
+    required String bmiValue,
+    required String bmiSubtitle,
+    required Color bmiSubtitleColor,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            icon: Icons.monitor_weight_outlined,
+            iconColor: primaryBlue,
+            title: 'Current Weight',
+            value: weightValue,
+            unit: 'kg',
+            subtitle: weightSubtitle,
+            subtitleColor: weightSubtitleColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _statCard(
+            icon: Icons.favorite_border_rounded,
+            iconColor: successGreen,
+            title: 'BMI',
+            value: bmiValue,
+            unit: '',
+            subtitle: bmiSubtitle,
+            subtitleColor: bmiSubtitleColor,
           ),
         ),
       ],

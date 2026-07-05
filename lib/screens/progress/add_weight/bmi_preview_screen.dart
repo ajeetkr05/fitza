@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'weight_updated_screen.dart';
+import '../../../services/progress/weight_firestore_service.dart';
 
 class BmiPreviewScreen extends StatelessWidget {
   final double weight;
@@ -47,16 +48,53 @@ class BmiPreviewScreen extends StatelessWidget {
     return 'BMI is only one general indicator of health.';
   }
 
-  void _saveWeight(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => WeightUpdatedScreen(
-          weight: weight,
-          bmi: bmi,
-        ),
-      ),
+  Future<void> _saveWeight(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
     );
+
+    try {
+      await WeightFirestoreService.instance.saveWeightEntry(
+        weightKg: weight,
+        heightCm: height,
+        notes: notes,
+        recordedAt: selectedDate,
+      );
+
+      if (!context.mounted) return;
+
+      Navigator.of(context, rootNavigator: true).pop();
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WeightUpdatedScreen(
+            weight: weight,
+            bmi: bmi,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+
+      Navigator.of(context, rootNavigator: true).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save your weight. Please check your connection and try again.',
+          ),
+        ),
+      );
+
+      debugPrint('Firestore weight save error: $error');
+    }
   }
 
   @override
