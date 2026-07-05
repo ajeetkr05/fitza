@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../trends/weight_trend_screen.dart';
+
 class WeightUpdatedScreen extends StatelessWidget {
   final double weight;
   final double bmi;
@@ -170,9 +172,13 @@ class WeightUpdatedScreen extends StatelessWidget {
                 height: 58,
                 child: OutlinedButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Weight Trend screen will be connected later.'),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WeightTrendScreen(
+                          initialTrendType: 'Weight',
+                          initialTimeRange: 'Monthly',
+                        ),
                       ),
                     );
                   },

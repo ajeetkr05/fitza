@@ -4,6 +4,7 @@ import '../../widgets/app_bottom_navigation.dart';
 import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
+import 'trends/trends_screen.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
@@ -189,6 +190,14 @@ class ProgressDashboardScreen extends StatelessWidget {
                       context,
                       icon: Icons.show_chart_rounded,
                       label: 'View Trends',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TrendsScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
