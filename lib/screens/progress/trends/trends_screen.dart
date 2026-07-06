@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/progress/weight_entry.dart';
+import '../../../models/progress/workout_entry.dart';
 import '../../../services/progress/weight_firestore_service.dart';
+import '../../../services/progress/workout_firestore_service.dart';
 
 class TrendsScreen extends StatefulWidget {
   final String initialTrendType;
@@ -69,6 +71,70 @@ class _TrendsScreenState extends State<TrendsScreen> {
     return entries
         .where((entry) => !entry.recordedAt.isBefore(startDate))
         .toList();
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime _workoutRangeStartDate(DateTime today) {
+    if (_selectedRange == 'Weekly') {
+      return today.subtract(const Duration(days: 6));
+    }
+
+    if (_selectedRange == 'Monthly') {
+      return today.subtract(const Duration(days: 29));
+    }
+
+    return today.subtract(const Duration(days: 364));
+  }
+
+  List<WorkoutEntry> _workoutsForSelectedRange(
+    List<WorkoutEntry> workouts,
+  ) {
+    final today = _dateOnly(DateTime.now());
+    final startDate = _workoutRangeStartDate(today);
+
+    return workouts.where((workout) {
+      final workoutDay = _dateOnly(workout.recordedAt);
+
+      return !workoutDay.isBefore(startDate) &&
+          !workoutDay.isAfter(today);
+    }).toList();
+  }
+
+  List<_WorkoutTrendPoint> _buildWorkoutTrendPoints(
+    List<WorkoutEntry> workouts,
+  ) {
+    final today = _dateOnly(DateTime.now());
+    final startDate = _workoutRangeStartDate(today);
+
+    final totalDays = today.difference(startDate).inDays + 1;
+    final pointCount = totalDays < 7 ? totalDays : 7;
+
+    return List.generate(pointCount, (index) {
+      final startOffset = index * totalDays ~/ pointCount;
+      final endOffset = ((index + 1) * totalDays ~/ pointCount) - 1;
+
+      final bucketStart = startDate.add(Duration(days: startOffset));
+      final bucketEnd = startDate.add(Duration(days: endOffset));
+
+      final workoutCount = workouts.where((workout) {
+        final workoutDay = _dateOnly(workout.recordedAt);
+
+        return !workoutDay.isBefore(bucketStart) &&
+            !workoutDay.isAfter(bucketEnd);
+      }).length;
+
+      return _WorkoutTrendPoint(
+        label: _formatTrendDate(bucketEnd),
+        value: workoutCount.toDouble(),
+      );
+    });
+  }
+
+  String _workoutCountLabel(int count) {
+    return '$count ${count == 1 ? 'workout' : 'workouts'}';
   }
 
   String _formatTrendDate(DateTime date) {
@@ -322,29 +388,51 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }
 
   Widget _trendContent() {
-    if (!_usesFirestoreTrend) {
-      return _demoTrendContent();
+    if (_usesFirestoreTrend) {
+      return StreamBuilder<List<WeightEntry>>(
+        stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _statusTrendContent(
+              message: 'Could not load trend data.',
+            );
+          }
+
+          if (!snapshot.hasData) {
+            return _statusTrendContent(
+              message: 'Loading trend data...',
+              isLoading: true,
+            );
+          }
+
+          return _firestoreTrendContent(snapshot.data!);
+        },
+      );
     }
 
-    return StreamBuilder<List<WeightEntry>>(
-      stream: WeightFirestoreService.instance.getWeightEntriesStream(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _statusTrendContent(
-            message: 'Could not load trend data.',
-          );
-        }
+    if (_selectedTrend == 'Workouts') {
+      return StreamBuilder<List<WorkoutEntry>>(
+        stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _statusTrendContent(
+              message: 'Could not load workout trend data.',
+            );
+          }
 
-        if (!snapshot.hasData) {
-          return _statusTrendContent(
-            message: 'Loading trend data...',
-            isLoading: true,
-          );
-        }
+          if (!snapshot.hasData) {
+            return _statusTrendContent(
+              message: 'Loading workout trend data...',
+              isLoading: true,
+            );
+          }
 
-        return _firestoreTrendContent(snapshot.data!);
-      },
-    );
+          return _workoutTrendContent(snapshot.data!);
+        },
+      );
+    }
+
+    return _demoTrendContent();
   }
 
   Widget _firestoreTrendContent(List<WeightEntry> allEntries) {
@@ -461,6 +549,78 @@ class _TrendsScreenState extends State<TrendsScreen> {
           badgeText: badgeText,
           badgeTextColor: changeColor,
           badgeBackgroundColor: badgeBackgroundColor,
+        ),
+        const SizedBox(height: 14),
+        _insightCard(insight),
+      ],
+    );
+  }
+
+  Widget _workoutTrendContent(List<WorkoutEntry> allWorkouts) {
+    final rangeWorkouts = _workoutsForSelectedRange(allWorkouts);
+
+    if (rangeWorkouts.isEmpty) {
+      return _statusTrendContent(
+        message: 'No workouts saved in this period.',
+      );
+    }
+
+    final points = _buildWorkoutTrendPoints(rangeWorkouts);
+
+    final bucketCounts = points.map((point) => point.value).toList();
+    final labels = points.map((point) => point.label).toList();
+
+    final chartValues = <double>[];
+    var cumulativeTotal = 0.0;
+
+    for (final count in bucketCounts) {
+      cumulativeTotal += count;
+      chartValues.add(cumulativeTotal);
+    }
+
+    final average =
+        bucketCounts.reduce((total, value) => total + value) /
+            bucketCounts.length;
+
+    final totalWorkouts = rangeWorkouts.length;
+    final firstPeriodTotal = chartValues.first.toInt();
+    final change = totalWorkouts - firstPeriodTotal;
+
+    String changeValue;
+    Color changeColor;
+    IconData changeIcon;
+
+    if (totalWorkouts == 1) {
+      changeValue = 'First workout';
+      changeColor = primaryBlue;
+      changeIcon = Icons.remove_rounded;
+    } else if (change > 0) {
+      changeValue = '↑ ${_workoutCountLabel(change)}';
+      changeColor = successGreen;
+      changeIcon = Icons.trending_up_rounded;
+    } else {
+      changeValue = 'No change';
+      changeColor = primaryBlue;
+      changeIcon = Icons.remove_rounded;
+    }
+
+    final insight = totalWorkouts == 1
+        ? 'You completed your first workout this $_periodLabel. Keep building the habit.'
+        : 'You completed ${_workoutCountLabel(totalWorkouts)} this $_periodLabel. Keep it up!';
+
+    return Column(
+      children: [
+        _trendCard(
+          values: chartValues,
+          labels: labels,
+          averageValue: '${average.toStringAsFixed(1)} workouts',
+          latestValue: _workoutCountLabel(totalWorkouts),
+          changeValue: changeValue,
+          changeColor: changeColor,
+          changeIcon: changeIcon,
+          badgeText: _workoutCountLabel(totalWorkouts),
+          badgeTextColor: primaryBlue,
+          badgeBackgroundColor: const Color(0xFFEAF3FF),
         ),
         const SizedBox(height: 14),
         _insightCard(insight),
@@ -829,6 +989,16 @@ class _TrendsScreenState extends State<TrendsScreen> {
       ],
     );
   }
+}
+
+class _WorkoutTrendPoint {
+  final String label;
+  final double value;
+
+  const _WorkoutTrendPoint({
+    required this.label,
+    required this.value,
+  });
 }
 
 class TrendChart extends StatelessWidget {
