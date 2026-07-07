@@ -9,6 +9,7 @@ import '../../models/progress/weight_entry.dart';
 import '../../models/progress/workout_entry.dart';
 import '../../services/progress/weight_firestore_service.dart';
 import '../../services/progress/workout_firestore_service.dart';
+import '../../services/auth/auth_service.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final int selectedIndex;
@@ -39,7 +40,7 @@ class ProgressDashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _topHeader(),
+              _topHeader(context),
 
               const SizedBox(height: 28),
 
@@ -292,11 +293,11 @@ class ProgressDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _topHeader() {
+  Widget _topHeader(BuildContext context) {
     return Row(
       children: [
         IconButton(
-          onPressed: () {},
+          onPressed: () => _showAccountMenu(context),
           icon: const Icon(
             Icons.menu_rounded,
             color: darkText,
@@ -340,6 +341,89 @@ class ProgressDashboardScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _showAccountMenu(BuildContext context) async {
+    final shouldSignOut = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(24),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD1D5DB),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Account',
+                      style: TextStyle(
+                        color: darkText,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.logout_rounded,
+                      color: Colors.red,
+                    ),
+                    title: const Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(sheetContext, true);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldSignOut != true) {
+      return;
+    }
+
+    try {
+      await AuthService.instance.signOut();
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not sign out. Please try again.'),
+        ),
+      );
+    }
   }
 
   Widget _weightAndBmiCards({
