@@ -1,8 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/profile/user_profile.dart';
 import '../../models/progress/weight_entry.dart';
 import '../../services/auth/auth_service.dart';
+import '../../services/profile/profile_firestore_service.dart';
 import '../../services/progress/weight_firestore_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import '../progress/exercise_history/exercise_history_screen.dart';
@@ -28,10 +29,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color greyText = Color(0xFF667085);
   static const Color background = Color(0xFFF5F5F5);
   static const Color successGreen = Color(0xFF2E7D32);
-
-  bool _notificationsEnabled = true;
-  bool _workoutRemindersEnabled = true;
-  bool _darkModeEnabled = false;
 
   Future<void> _signOut(BuildContext context) async {
     final shouldSignOut = await showDialog<bool>(
@@ -78,42 +75,363 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showComingSoon(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$title will be added later.'),
+  Future<void> _updatePreference({
+    required String fieldName,
+    required bool value,
+  }) async {
+    try {
+      await ProfileFirestoreService.instance.updatePreference(
+        fieldName: fieldName,
+        value: value,
+      );
+
+      if (fieldName == 'darkModeEnabled' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dark mode preference saved. UI theme will be added later.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update preference. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showEditProfileSheet(UserProfile profile) async {
+    final formKey = GlobalKey<FormState>();
+
+    final nameController = TextEditingController(
+      text: profile.displayName,
+    );
+
+    final ageController = TextEditingController(
+      text: profile.age == null ? '' : profile.age.toString(),
+    );
+
+    final goalOptions = [
+      'Lose Weight',
+      'Gain Muscle',
+      'Stay Fit',
+      'Improve Endurance',
+      'Build Strength',
+    ];
+
+    final activityOptions = [
+      'Low',
+      'Moderate',
+      'High',
+      'Very Active',
+    ];
+
+    final locationOptions = [
+      'Home',
+      'Gym',
+      'Gym & Home',
+      'Outdoor',
+    ];
+
+    String selectedGoal =
+        goalOptions.contains(profile.goal) ? profile.goal : 'Stay Fit';
+
+    String selectedActivity = activityOptions.contains(profile.activityLevel)
+        ? profile.activityLevel
+        : 'Moderate';
+
+    String selectedLocation =
+        locationOptions.contains(profile.location) ? profile.location : 'Home';
+
+    var isSaving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+          Future<void> saveProfile() async {
+            if (!formKey.currentState!.validate()) {
+              return;
+            }
+
+            setSheetState(() {
+              isSaving = true;
+            });
+
+            try {
+              await ProfileFirestoreService.instance.updateProfileDetails(
+                displayName: nameController.text,
+                age: ageController.text.trim().isEmpty
+                    ? null
+                    : int.tryParse(ageController.text.trim()),
+                goal: selectedGoal,
+                activityLevel: selectedActivity,
+                location: selectedLocation,
+              );
+
+              if (!sheetContext.mounted) {
+                return;
+              }
+
+              Navigator.pop(sheetContext);
+            } catch (_) {
+              if (!sheetContext.mounted) {
+                return;
+              }
+
+              setSheetState(() {
+                isSaving = false;
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not save profile. Please try again.'),
+                ),
+              );
+            }
+          }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(26),
+                  ),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              height: 4,
+                              width: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD1D5DB),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Edit Profile',
+                            style: TextStyle(
+                              color: darkText,
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: nameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: _inputDecoration(
+                              label: 'Display Name',
+                              icon: Icons.person_outline_rounded,
+                            ),
+                            validator: (value) {
+                              if ((value ?? '').trim().isEmpty) {
+                                return 'Enter your display name.';
+                              }
+
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: ageController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.done,
+                            decoration: _inputDecoration(
+                              label: 'Age',
+                              icon: Icons.calendar_today_outlined,
+                            ),
+                            validator: (value) {
+                              final text = value?.trim() ?? '';
+
+                              if (text.isEmpty) {
+                                return null;
+                              }
+
+                              final age = int.tryParse(text);
+
+                              if (age == null || age < 10 || age > 100) {
+                                return 'Enter a valid age between 10 and 100.';
+                              }
+
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            value: selectedGoal,
+                            decoration: _inputDecoration(
+                              label: 'Goal',
+                              icon: Icons.track_changes_rounded,
+                            ),
+                            items: goalOptions
+                                .map(
+                                  (goal) => DropdownMenuItem(
+                                    value: goal,
+                                    child: Text(goal),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isSaving
+                                ? null
+                                : (value) {
+                                    if (value == null) {
+                                      return;
+                                    }
+
+                                    setSheetState(() {
+                                      selectedGoal = value;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            value: selectedActivity,
+                            decoration: _inputDecoration(
+                              label: 'Activity Level',
+                              icon: Icons.bar_chart_rounded,
+                            ),
+                            items: activityOptions
+                                .map(
+                                  (activity) => DropdownMenuItem(
+                                    value: activity,
+                                    child: Text(activity),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isSaving
+                                ? null
+                                : (value) {
+                                    if (value == null) {
+                                      return;
+                                    }
+
+                                    setSheetState(() {
+                                      selectedActivity = value;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            value: selectedLocation,
+                            decoration: _inputDecoration(
+                              label: 'Location',
+                              icon: Icons.location_on_outlined,
+                            ),
+                            items: locationOptions
+                                .map(
+                                  (location) => DropdownMenuItem(
+                                    value: location,
+                                    child: Text(location),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isSaving
+                                ? null
+                                : (value) {
+                                    if (value == null) {
+                                      return;
+                                    }
+
+                                    setSheetState(() {
+                                      selectedLocation = value;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(height: 22),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: isSaving ? null : saveProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryBlue,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: isSaving
+                                  ? const SizedBox(
+                                      height: 23,
+                                      width: 23,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Save Profile',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    nameController.dispose();
+    ageController.dispose();
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: Color(0xFFD1D5DB),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: primaryBlue,
+          width: 2,
+        ),
       ),
     );
-  }
-
-  String _userEmail(User? user) {
-    final email = user?.email?.trim();
-
-    if (email == null || email.isEmpty) {
-      return 'No email found';
-    }
-
-    return email;
-  }
-
-  String _displayName(User? user) {
-    final email = user?.email?.trim();
-
-    if (email == null || email.isEmpty) {
-      return 'Fitza User';
-    }
-
-    final namePart = email.split('@').first;
-
-    return namePart
-        .replaceAll('.', ' ')
-        .replaceAll('_', ' ')
-        .split(' ')
-        .where((word) => word.trim().isNotEmpty)
-        .map(
-          (word) => word[0].toUpperCase() + word.substring(1),
-        )
-        .join(' ');
   }
 
   WeightEntry? _latestWeightEntry(List<WeightEntry> entries) {
@@ -132,18 +450,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${entry.weightKg.toStringAsFixed(1)} kg';
   }
 
-  String _formatHeight(WeightEntry? entry) {
-    if (entry == null) {
+  String _formatHeight(UserProfile profile, WeightEntry? entry) {
+    final height = entry?.heightCm ?? profile.heightCm;
+
+    if (height == null) {
       return '—';
     }
 
-    return '${entry.heightCm.toStringAsFixed(0)} cm';
+    return '${height.toStringAsFixed(0)} cm';
+  }
+
+  String _formatAge(UserProfile profile) {
+    if (profile.age == null) {
+      return '—';
+    }
+
+    return profile.age.toString();
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
       backgroundColor: background,
       bottomNavigationBar: AppBottomNavigation(
@@ -151,181 +477,243 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: widget.onTabChanged,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: StreamBuilder<List<WeightEntry>>(
-            stream: WeightFirestoreService.instance.getWeightEntriesStream(),
-            builder: (context, snapshot) {
-              final latestEntry = snapshot.hasData
-                  ? _latestWeightEntry(snapshot.data!)
-                  : null;
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _topBar(),
-                  const SizedBox(height: 20),
-                  _profileHeroCard(
-                    user: user,
-                    latestEntry: latestEntry,
-                  ),
-                  const SizedBox(height: 18),
-                  _profileStatsGrid(latestEntry),
-                  const SizedBox(height: 18),
-                  _sectionCard(
-                    title: 'Preferences',
-                    children: [
-                      _switchRow(
-                        icon: Icons.dark_mode_outlined,
-                        title: 'Dark Mode',
-                        value: _darkModeEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _darkModeEnabled = value;
-                          });
-
-                          _showComingSoon('Dark mode');
-                        },
-                      ),
-                      _divider(),
-                      _switchRow(
-                        icon: Icons.notifications_none_rounded,
-                        title: 'Notifications',
-                        value: _notificationsEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _notificationsEnabled = value;
-                          });
-                        },
-                      ),
-                      _divider(),
-                      _switchRow(
-                        icon: Icons.event_available_outlined,
-                        title: 'Workout Reminders',
-                        value: _workoutRemindersEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _workoutRemindersEnabled = value;
-                          });
-                        },
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.straighten_rounded,
-                        title: 'Measurement Units',
-                        onTap: () => _showComingSoon('Measurement units'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.volume_up_outlined,
-                        title: 'Sound & Haptics',
-                        onTap: () => _showComingSoon('Sound and haptics'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.privacy_tip_outlined,
-                        title: 'Privacy',
-                        onTap: () => _showComingSoon('Privacy settings'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _sectionCard(
-                    title: 'Account',
-                    children: [
-                      _navigationRow(
-                        icon: Icons.person_outline_rounded,
-                        title: 'Edit Profile',
-                        onTap: () => _showComingSoon('Edit profile'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.badge_outlined,
-                        title: 'Personal Details',
-                        onTap: () => _showComingSoon('Personal details'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.fitness_center_outlined,
-                        title: 'Workout History',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ExerciseHistoryScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.watch_outlined,
-                        title: 'Connected Devices',
-                        onTap: () => _showComingSoon('Connected devices'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.workspace_premium_outlined,
-                        title: 'Subscription / Premium',
-                        onTap: () => _showComingSoon('Subscription'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _sectionCard(
-                    title: 'Support',
-                    children: [
-                      _navigationRow(
-                        icon: Icons.help_outline_rounded,
-                        title: 'Help & Support',
-                        onTap: () => _showComingSoon('Help and support'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.security_outlined,
-                        title: 'Privacy & Security',
-                        onTap: () => _showComingSoon('Privacy and security'),
-                      ),
-                      _divider(),
-                      _navigationRow(
-                        icon: Icons.info_outline_rounded,
-                        title: 'About Fitza',
-                        onTap: () => _showComingSoon('About Fitza'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 58,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _signOut(context),
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text(
-                        'Log Out',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: primaryBlue,
-                        side: const BorderSide(
-                          color: Color(0xFFC8D9F6),
-                          width: 1.5,
-                        ),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+        child: StreamBuilder<UserProfile>(
+          stream: ProfileFirestoreService.instance.getProfileStream(),
+          builder: (context, profileSnapshot) {
+            if (profileSnapshot.hasError) {
+              return _statusScreen(
+                message: 'Could not load profile details.',
+                icon: Icons.error_outline_rounded,
+                iconColor: Colors.red,
               );
-            },
-          ),
+            }
+
+            if (!profileSnapshot.hasData) {
+              return _statusScreen(
+                message: 'Loading profile...',
+                icon: Icons.hourglass_top_rounded,
+                iconColor: primaryBlue,
+                isLoading: true,
+              );
+            }
+
+            final profile = profileSnapshot.data!;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              child: StreamBuilder<List<WeightEntry>>(
+                stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+                builder: (context, weightSnapshot) {
+                  final latestEntry = weightSnapshot.hasData
+                      ? _latestWeightEntry(weightSnapshot.data!)
+                      : null;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _topBar(),
+                      const SizedBox(height: 20),
+                      _profileHeroCard(profile),
+                      const SizedBox(height: 18),
+                      _profileStatsGrid(profile, latestEntry),
+                      const SizedBox(height: 18),
+                      _sectionCard(
+                        title: 'Preferences',
+                        children: [
+                          _switchRow(
+                            icon: Icons.dark_mode_outlined,
+                            title: 'Dark Mode',
+                            value: profile.darkModeEnabled,
+                            onChanged: (value) => _updatePreference(
+                              fieldName: 'darkModeEnabled',
+                              value: value,
+                            ),
+                          ),
+                          _divider(),
+                          _switchRow(
+                            icon: Icons.notifications_none_rounded,
+                            title: 'Notifications',
+                            value: profile.notificationsEnabled,
+                            onChanged: (value) => _updatePreference(
+                              fieldName: 'notificationsEnabled',
+                              value: value,
+                            ),
+                          ),
+                          _divider(),
+                          _switchRow(
+                            icon: Icons.event_available_outlined,
+                            title: 'Workout Reminders',
+                            value: profile.workoutRemindersEnabled,
+                            onChanged: (value) => _updatePreference(
+                              fieldName: 'workoutRemindersEnabled',
+                              value: value,
+                            ),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.straighten_rounded,
+                            title: 'Measurement Units',
+                            onTap: () => _showComingSoon('Measurement units'),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.volume_up_outlined,
+                            title: 'Sound & Haptics',
+                            onTap: () => _showComingSoon('Sound and haptics'),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.privacy_tip_outlined,
+                            title: 'Privacy',
+                            onTap: () => _showComingSoon('Privacy settings'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _sectionCard(
+                        title: 'Account',
+                        children: [
+                          _navigationRow(
+                            icon: Icons.person_outline_rounded,
+                            title: 'Edit Profile',
+                            onTap: () => _showEditProfileSheet(profile),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.badge_outlined,
+                            title: 'Personal Details',
+                            onTap: () => _showEditProfileSheet(profile),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.fitness_center_outlined,
+                            title: 'Workout History',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const ExerciseHistoryScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.watch_outlined,
+                            title: 'Connected Devices',
+                            onTap: () => _showComingSoon('Connected devices'),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.workspace_premium_outlined,
+                            title: 'Subscription / Premium',
+                            onTap: () => _showComingSoon('Subscription'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _sectionCard(
+                        title: 'Support',
+                        children: [
+                          _navigationRow(
+                            icon: Icons.help_outline_rounded,
+                            title: 'Help & Support',
+                            onTap: () => _showComingSoon('Help and support'),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.security_outlined,
+                            title: 'Privacy & Security',
+                            onTap: () =>
+                                _showComingSoon('Privacy and security'),
+                          ),
+                          _divider(),
+                          _navigationRow(
+                            icon: Icons.info_outline_rounded,
+                            title: 'About Fitza',
+                            onTap: () => _showComingSoon('About Fitza'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 58,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _signOut(context),
+                          icon: const Icon(Icons.logout_rounded),
+                          label: const Text(
+                            'Log Out',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: primaryBlue,
+                            side: const BorderSide(
+                              color: Color(0xFFC8D9F6),
+                              width: 1.5,
+                            ),
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _statusScreen({
+    required String message,
+    required IconData icon,
+    required Color iconColor,
+    bool isLoading = false,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLoading)
+              const CircularProgressIndicator()
+            else
+              Icon(
+                icon,
+                color: iconColor,
+                size: 48,
+              ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: darkText,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showComingSoon(String title) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title will be added later.'),
       ),
     );
   }
@@ -370,10 +758,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _profileHeroCard({
-    required User? user,
-    required WeightEntry? latestEntry,
-  }) {
+  Widget _profileHeroCard(UserProfile profile) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -448,7 +833,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _displayName(user),
+                  profile.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -459,7 +844,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _userEmail(user),
+                  profile.email,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -504,7 +889,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _profileStatsGrid(WeightEntry? latestEntry) {
+  Widget _profileStatsGrid(
+    UserProfile profile,
+    WeightEntry? latestEntry,
+  ) {
     return Column(
       children: [
         Row(
@@ -512,7 +900,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: _smallStatCard(
                 icon: Icons.calendar_today_outlined,
-                value: '—',
+                value: _formatAge(profile),
                 label: 'Age',
               ),
             ),
@@ -520,7 +908,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: _smallStatCard(
                 icon: Icons.height_rounded,
-                value: _formatHeight(latestEntry),
+                value: _formatHeight(profile, latestEntry),
                 label: 'Height',
               ),
             ),
@@ -540,7 +928,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: _smallStatCard(
                 icon: Icons.track_changes_rounded,
-                value: 'Stay Fit',
+                value: profile.goal,
                 label: 'Goal',
               ),
             ),
@@ -548,7 +936,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: _smallStatCard(
                 icon: Icons.bar_chart_rounded,
-                value: 'Moderate',
+                value: profile.activityLevel,
                 label: 'Activity',
               ),
             ),
@@ -556,7 +944,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: _smallStatCard(
                 icon: Icons.location_on_outlined,
-                value: 'Home',
+                value: profile.location,
                 label: 'Location',
               ),
             ),
@@ -594,7 +982,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: darkText,
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
