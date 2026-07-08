@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/progress/weight_entry.dart';
 
 class WeightFirestoreService {
@@ -8,12 +8,20 @@ class WeightFirestoreService {
   static final WeightFirestoreService instance =
       WeightFirestoreService._();
 
-  static const String _demoUserId = 'demo_user';
+  String get _currentUserId {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      throw StateError('No signed-in user found.');
+    }
+
+    return user.uid;
+  }
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   DocumentReference<Map<String, dynamic>> get _userDocument {
-    return _firestore.collection('users').doc(_demoUserId);
+    return _firestore.collection('users').doc(_currentUserId);
   }
 
   CollectionReference<Map<String, dynamic>> get _weightEntriesCollection {
