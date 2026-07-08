@@ -26,6 +26,10 @@ class ProfileFirestoreService {
     return _firestore.collection('users').doc(_currentUser.uid);
   }
 
+  CollectionReference<Map<String, dynamic>> get _weightEntriesCollection {
+    return _userDocument.collection('weight_entries');
+  }
+
   Stream<UserProfile> getProfileStream() {
     final user = _currentUser;
 
@@ -38,25 +42,121 @@ class ProfileFirestoreService {
         );
   }
 
+  Future<void> saveOnboardingProfile({
+    required String displayName,
+    required int age,
+    required double heightCm,
+    required double? weightKg,
+    required String goal,
+    required String activityLevel,
+    required String gender,
+    required String location,
+    required String workoutPreference,
+    required String dietaryPreference,
+    required String fitnessExperience,
+  }) async {
+    final cleanedDisplayName = displayName.trim();
+    final now = DateTime.now();
+
+    final batch = _firestore.batch();
+
+    batch.set(
+      _userDocument,
+      {
+        'email': _currentUser.email,
+        'displayName': cleanedDisplayName,
+        'age': age,
+        'heightCm': heightCm,
+        'weightKg': weightKg,
+        'goal': goal,
+        'activityLevel': activityLevel,
+        'gender': gender,
+        'location': location,
+        'workoutPreference': workoutPreference,
+        'dietaryPreference': dietaryPreference,
+        'fitnessExperience': fitnessExperience,
+        'profileSetupCompleted': true,
+        'notificationsEnabled': true,
+        'workoutRemindersEnabled': true,
+        'darkModeEnabled': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    if (weightKg != null && weightKg > 0) {
+      batch.set(
+        _weightEntriesCollection.doc('initial_profile_weight'),
+        {
+          'weightKg': weightKg,
+          'heightCm': heightCm,
+          'notes': 'Added during profile setup',
+          'recordedAt': Timestamp.fromDate(now),
+          'createdAt': Timestamp.fromDate(now),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> skipProfileSetup() async {
+    await _userDocument.set(
+      {
+        'profileSetupCompleted': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   Future<void> updateProfileDetails({
     required String displayName,
     required int? age,
     required String goal,
     required String activityLevel,
     required String location,
+    double? heightCm,
+    String? gender,
+    String? workoutPreference,
+    String? dietaryPreference,
+    String? fitnessExperience,
   }) async {
     final cleanedDisplayName = displayName.trim();
 
+    final updateData = <String, dynamic>{
+      'displayName': cleanedDisplayName,
+      'age': age,
+      'goal': goal,
+      'activityLevel': activityLevel,
+      'location': location,
+      'email': _currentUser.email,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (heightCm != null) {
+      updateData['heightCm'] = heightCm;
+    }
+
+    if (gender != null) {
+      updateData['gender'] = gender;
+    }
+
+    if (workoutPreference != null) {
+      updateData['workoutPreference'] = workoutPreference;
+    }
+
+    if (dietaryPreference != null) {
+      updateData['dietaryPreference'] = dietaryPreference;
+    }
+
+    if (fitnessExperience != null) {
+      updateData['fitnessExperience'] = fitnessExperience;
+    }
+
     await _userDocument.set(
-      {
-        'displayName': cleanedDisplayName,
-        'age': age,
-        'goal': goal,
-        'activityLevel': activityLevel,
-        'location': location,
-        'email': _currentUser.email,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
+      updateData,
       SetOptions(merge: true),
     );
   }

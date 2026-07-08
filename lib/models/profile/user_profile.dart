@@ -6,9 +6,15 @@ class UserProfile {
   final String displayName;
   final int? age;
   final double? heightCm;
+  final double? weightKg;
   final String goal;
   final String activityLevel;
+  final String gender;
   final String location;
+  final String workoutPreference;
+  final String dietaryPreference;
+  final String fitnessExperience;
+  final bool profileSetupCompleted;
   final bool darkModeEnabled;
   final bool notificationsEnabled;
   final bool workoutRemindersEnabled;
@@ -19,9 +25,15 @@ class UserProfile {
     required this.displayName,
     required this.age,
     required this.heightCm,
+    required this.weightKg,
     required this.goal,
     required this.activityLevel,
+    required this.gender,
     required this.location,
+    required this.workoutPreference,
+    required this.dietaryPreference,
+    required this.fitnessExperience,
+    required this.profileSetupCompleted,
     required this.darkModeEnabled,
     required this.notificationsEnabled,
     required this.workoutRemindersEnabled,
@@ -40,9 +52,16 @@ class UserProfile {
       displayName: data['displayName'] as String? ?? fallbackDisplayName,
       age: (data['age'] as num?)?.toInt(),
       heightCm: (data['heightCm'] as num?)?.toDouble(),
+      weightKg: (data['weightKg'] as num?)?.toDouble(),
       goal: data['goal'] as String? ?? 'Stay Fit',
       activityLevel: data['activityLevel'] as String? ?? 'Moderate',
+      gender: data['gender'] as String? ?? 'Prefer not to say',
       location: data['location'] as String? ?? 'Home',
+      workoutPreference: data['workoutPreference'] as String? ?? 'Both',
+      dietaryPreference: data['dietaryPreference'] as String? ?? 'Not set',
+      fitnessExperience: data['fitnessExperience'] as String? ?? 'Beginner',
+      profileSetupCompleted:
+          data['profileSetupCompleted'] as bool? ?? false,
       darkModeEnabled: data['darkModeEnabled'] as bool? ?? false,
       notificationsEnabled: data['notificationsEnabled'] as bool? ?? true,
       workoutRemindersEnabled:
