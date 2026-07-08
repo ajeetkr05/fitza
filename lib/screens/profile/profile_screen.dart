@@ -6,6 +6,7 @@ import '../../services/auth/auth_service.dart';
 import '../../services/profile/profile_firestore_service.dart';
 import '../../services/progress/weight_firestore_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
+import '../../widgets/fitza_header.dart';
 import '../progress/exercise_history/exercise_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -719,42 +720,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _topBar() {
-    return Row(
-      children: [
-        const Icon(
-          Icons.bolt_rounded,
-          color: primaryBlue,
-          size: 36,
-        ),
-        const SizedBox(width: 8),
-        const Text(
-          'Fitza',
-          style: TextStyle(
-            color: darkText,
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-        const Spacer(),
-        const Text(
-          'Profile',
-          style: TextStyle(
-            color: darkText,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: () => _showComingSoon('Profile settings'),
-          icon: const Icon(
-            Icons.settings_outlined,
-            color: darkText,
-            size: 28,
-          ),
-        ),
-      ],
+    return FitzaHeader(
+      centerTitle: 'Profile',
+      trailing: FitzaHeaderIconButton(
+        icon: Icons.settings_outlined,
+        onTap: () => _showComingSoon('Profile settings'),
+      ),
     );
   }
 

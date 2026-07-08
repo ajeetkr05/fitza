@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/app_bottom_navigation.dart';
+import '../../widgets/fitza_header.dart';
 import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
@@ -41,7 +42,11 @@ class ProgressDashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _topHeader(context),
+              const FitzaHeader(
+                trailing: FitzaHeaderIconButton(
+                  icon: Icons.notifications_none_rounded,
+                ),
+              ),
 
               const SizedBox(height: 18),
 
