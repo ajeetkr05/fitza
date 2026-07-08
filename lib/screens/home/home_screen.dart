@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/app_bottom_navigation.dart';
+import '../../widgets/fitza_header.dart';
 
 class HomeScreen extends StatefulWidget {
   final int selectedIndex;
@@ -38,37 +39,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () {},
-                          icon: const Icon(
-                            Icons.menu_rounded,
-                            color: darkText,
-                            size: 30,
+                    const FitzaHeader(
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FitzaHeaderIconButton(
+                            icon: Icons.dark_mode_outlined,
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.bolt_rounded,
-                          color: primaryBlue,
-                          size: 42,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Fitza',
-                          style: TextStyle(
-                            color: darkText,
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            fontStyle: FontStyle.italic,
+                          SizedBox(width: 10),
+                          FitzaHeaderIconButton(
+                            icon: Icons.notifications_none_rounded,
                           ),
-                        ),
-                        const Spacer(),
-                        _headerIcon(Icons.dark_mode_outlined),
-                        const SizedBox(width: 10),
-                        _headerIcon(Icons.notifications_none_rounded),
-                      ],
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 34),
