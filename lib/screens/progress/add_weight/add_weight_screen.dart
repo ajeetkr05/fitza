@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'set_height_screen.dart';
 import '../../../models/progress/weight_entry.dart';
 import '../../../services/progress/weight_firestore_service.dart';
-import 'bmi_preview_screen.dart';
 
 class AddWeightScreen extends StatefulWidget {
   const AddWeightScreen({super.key});
@@ -29,6 +27,7 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
   late final ValueNotifier<int> _weightTenthsNotifier;
 
   bool _hasInitialisedWeight = false;
+  bool _isSaving = false;
 
   static const Color primaryBlue = Color(0xFF1555C0);
   static const Color darkText = Color(0xFF0B1B4D);
@@ -175,6 +174,10 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
   }
 
   Future<void> _continue() async {
+    if (_isSaving) {
+      return;
+    }
+
     final weight = _selectedWeight;
 
     if (weight <= 0) {
@@ -186,46 +189,67 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
       return;
     }
 
+    setState(() {
+      _isSaving = true;
+    });
+
     try {
       final savedHeight =
           await WeightFirestoreService.instance.getSavedHeight();
 
-      if (!mounted) return;
-
-      if (savedHeight != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BmiPreviewScreen(
-              weight: weight,
-              height: savedHeight,
-              notes: _notesController.text.trim(),
-              selectedDate: _selectedDateTime,
-            ),
-          ),
-        );
+      if (!mounted) {
         return;
       }
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SetHeightScreen(
-            weight: weight,
-            notes: _notesController.text.trim(),
-            selectedDate: _selectedDateTime,
+      if (savedHeight == null) {
+        setState(() {
+          _isSaving = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your height is missing. Please update your profile first.',
+            ),
           ),
+        );
+
+        return;
+      }
+
+      await WeightFirestoreService.instance.saveWeightEntry(
+        weightKg: weight,
+        heightCm: savedHeight,
+        notes: _notesController.text.trim(),
+        recordedAt: _selectedDateTime,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Weight saved.'),
         ),
       );
-    } catch (error) {
-      if (!mounted) return;
 
-      debugPrint('Firestore height read error: $error');
+      Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      debugPrint('Firestore weight save error: $error');
+
+      setState(() {
+        _isSaving = false;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Could not check your saved height. Please try again.',
+            'Could not save your weight. Please check your connection and try again.',
           ),
         ),
       );
@@ -438,7 +462,7 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: _continue,
+                      onPressed: _isSaving ? null : _continue,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryBlue,
                         foregroundColor: Colors.white,
@@ -447,13 +471,22 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                         ),
                         elevation: 2,
                       ),
-                      child: const Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 17.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.4,
+                              ),
+                            )
+                          : const Text(
+                              'Save Weight',
+                              style: TextStyle(
+                                fontSize: 17.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                     ),
                   ),
                 ),
