@@ -8,6 +8,7 @@ class ReviewWorkoutScreen extends StatefulWidget {
   final String notes;
   final String workoutType;
   final String duration;
+  final DateTime? selectedDate;
 
   const ReviewWorkoutScreen({
     super.key,
@@ -15,6 +16,7 @@ class ReviewWorkoutScreen extends StatefulWidget {
     required this.notes,
     required this.workoutType,
     required this.duration,
+    this.selectedDate,
   });
 
   @override
@@ -45,6 +47,7 @@ class _ReviewWorkoutScreenState extends State<ReviewWorkoutScreen> {
         duration: widget.duration,
         notes: widget.notes,
         exercises: widget.exercises,
+        recordedAt: widget.selectedDate ?? DateTime.now(),
       );
 
       if (!mounted) {
@@ -216,6 +219,36 @@ class _ReviewWorkoutScreenState extends State<ReviewWorkoutScreen> {
     );
   }
 
+  String _formattedDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sept',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    final today = DateTime.now();
+
+    final isToday =
+        date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
+
+    if (isToday) {
+      return 'Today';
+    }
+
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   Widget _summaryCard() {
     return Container(
       width: double.infinity,
@@ -232,7 +265,7 @@ class _ReviewWorkoutScreenState extends State<ReviewWorkoutScreen> {
           _summaryRow(
             icon: Icons.calendar_month_outlined,
             title: 'Date',
-            value: 'Today',
+            value: _formattedDate(widget.selectedDate ?? DateTime.now()),
           ),
           const Divider(height: 34),
           _summaryRow(

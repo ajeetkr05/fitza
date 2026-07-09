@@ -33,9 +33,11 @@ class WorkoutFirestoreService {
     required String duration,
     required String notes,
     required List<Map<String, String>> exercises,
+    DateTime? recordedAt,
   }) async {
     final workoutDocument = _workoutsCollection.doc();
     final now = DateTime.now();
+    final workoutDate = recordedAt ?? now;
 
     final workoutEntry = WorkoutEntry(
       id: workoutDocument.id,
@@ -50,7 +52,7 @@ class WorkoutFirestoreService {
             ),
           )
           .toList(),
-      recordedAt: now,
+      recordedAt: workoutDate,
       createdAt: now,
     );
 
