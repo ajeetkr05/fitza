@@ -118,32 +118,24 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
       return;
     }
 
+    final newWhole = clampedTenths ~/ 10;
+    final wholeChanged = previousWhole != newWhole;
+
     _selectedWeightTenths = clampedTenths;
+
+    if (syncWholeWheel && wholeChanged) {
+      if (_wholeWeightController.hasClients) {
+        final expectedWholeIndex = newWhole - _minWeight;
+
+        if (_wholeWeightController.selectedItem != expectedWholeIndex) {
+          _wholeWeightController.jumpToItem(expectedWholeIndex);
+        }
+      }
+    }
+
     _weightTenthsNotifier.value = clampedTenths;
-
-    if (!syncWholeWheel) {
-      return;
-    }
-
-    final newWhole = _selectedWholeWeight;
-
-    if (previousWhole == newWhole) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_wholeWeightController.hasClients) {
-        return;
-      }
-
-      final expectedWholeIndex = _selectedWholeWeight - _minWeight;
-
-      if (_wholeWeightController.selectedItem != expectedWholeIndex) {
-        _wholeWeightController.jumpToItem(expectedWholeIndex);
-      }
-    });
   }
-
+  
   Future<void> _pickDateTime() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -388,8 +380,10 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                                 title: 'Notes (optional)',
                                 child: TextField(
                                   controller: _notesController,
-                                  maxLines: 2,
+                                  minLines: 2,
+                                  maxLines: 7,
                                   maxLength: 200,
+                                  keyboardType: TextInputType.multiline,
                                   style: const TextStyle(
                                     color: darkText,
                                     fontSize: 15,
@@ -409,7 +403,7 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                                     alignLabelWithHint: true,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
-                                      vertical: 11,
+                                      vertical: 12,
                                     ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
