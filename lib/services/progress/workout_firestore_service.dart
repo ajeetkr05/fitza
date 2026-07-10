@@ -34,6 +34,7 @@ class WorkoutFirestoreService {
     required String notes,
     required List<Map<String, String>> exercises,
     DateTime? recordedAt,
+    String? workoutName,
   }) async {
     final workoutDocument = _workoutsCollection.doc();
     final now = DateTime.now();
@@ -41,6 +42,9 @@ class WorkoutFirestoreService {
 
     final workoutEntry = WorkoutEntry(
       id: workoutDocument.id,
+      workoutName: (workoutName ?? '').trim().isEmpty
+          ? '$workoutType Workout'
+          : workoutName!.trim(),
       workoutType: workoutType,
       durationMinutes: _durationMinutes(duration),
       notes: notes.trim(),

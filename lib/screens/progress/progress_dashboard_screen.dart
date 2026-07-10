@@ -5,7 +5,7 @@ import '../../widgets/fitza_header.dart';
 import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
-import 'exercise_history/exercise_detail_screen.dart';
+import 'exercise_history/workout_session_detail_screen.dart';
 import 'trends/trends_screen.dart';
 import '../../models/progress/weight_entry.dart';
 import '../../models/progress/workout_entry.dart';
@@ -534,12 +534,10 @@ class ProgressDashboardScreen extends StatelessWidget {
   }
 
   String _recentWorkoutTitle(WorkoutEntry workout) {
-    if (workout.exercises.isNotEmpty) {
-      final name = workout.exercises.first['name']?.toString().trim() ?? '';
+    final name = workout.workoutName.trim();
 
-      if (name.isNotEmpty) {
-        return name;
-      }
+    if (name.isNotEmpty) {
+      return name;
     }
 
     return '${workout.workoutType} Workout';
@@ -548,7 +546,7 @@ class ProgressDashboardScreen extends StatelessWidget {
   String _recentWorkoutDetails(WorkoutEntry workout) {
     final parts = <String>[workout.workoutType];
 
-    if (workout.durationMinutes > 0) {
+    if (workout.workoutType != 'Gym' && workout.durationMinutes > 0) {
       parts.add('${workout.durationMinutes} min');
     }
 
@@ -1304,10 +1302,8 @@ class ProgressDashboardScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ExerciseDetailScreen(
-                exerciseName: exerciseTitle,
-                workoutType: workout.workoutType,
-                latestDetails: workoutDetails,
+              builder: (_) => WorkoutSessionDetailScreen(
+                workout: workout,
               ),
             ),
           );

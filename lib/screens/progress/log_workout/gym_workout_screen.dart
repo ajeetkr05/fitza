@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'review_workout_screen.dart';
 import '../../../data/gym_exercise_suggestions.dart';
+import '../../../services/progress/workout_firestore_service.dart';
 
 class GymWorkoutScreen extends StatefulWidget {
   const GymWorkoutScreen({super.key});
@@ -16,6 +16,7 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
   static const greyText = Color(0xFF667085);
   static const background = Color(0xFFF5F5F5);
 
+  final _workoutNameController = TextEditingController();
   final _exerciseController = TextEditingController();
   final _setsController = TextEditingController(text: '3');
   final _repsController = TextEditingController(text: '10');
@@ -25,6 +26,7 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
 
   DateTime _selectedDate = DateTime.now();
   bool _showExerciseSuggestions = false;
+  bool _isSaving = false;
 
   final List<Map<String, String>> _exercises = [];
 
@@ -44,6 +46,7 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
 
   @override
   void dispose() {
+    _workoutNameController.dispose();
     _exerciseController.dispose();
     _setsController.dispose();
     _repsController.dispose();
@@ -146,28 +149,76 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
     });
   }
 
-  void _reviewWorkout() {
-    if (_exercises.isEmpty) {
+  Future<void> _saveWorkout() async {
+    if (_isSaving) {
+      return;
+    }
+
+    final workoutName = _workoutNameController.text.trim();
+
+    if (workoutName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Add at least one exercise before reviewing.'),
+          content: Text('Please enter a workout name, like Chest + Triceps.'),
         ),
       );
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ReviewWorkoutScreen(
-          exercises: List<Map<String, String>>.from(_exercises),
-          notes: _notesController.text.trim(),
-          workoutType: 'Gym',
-          duration: '45 min',
-          selectedDate: _selectedDate,
+    if (_exercises.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add at least one exercise before saving.'),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await WorkoutFirestoreService.instance.saveWorkout(
+        workoutType: 'Gym',
+        duration: '0 min',
+        notes: _notesController.text.trim(),
+        exercises: List<Map<String, String>>.from(_exercises),
+        recordedAt: _selectedDate,
+        workoutName: workoutName,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Workout saved.'),
+        ),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (error, stackTrace) {
+      debugPrint('Could not save gym workout: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save workout. Please check your connection and try again.',
+          ),
+        ),
+      );
+    }
   }
 
   String _formattedDate() {
@@ -215,7 +266,7 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
                     Row(
                       children: [
                         IconButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: _isSaving ? null : () => Navigator.pop(context),
                           icon: const Icon(
                             Icons.arrow_back_rounded,
                             color: darkText,
@@ -240,48 +291,7 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
 
                     const SizedBox(height: 18),
 
-                    _card(
-                      child: InkWell(
-                        onTap: _pickDate,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Row(
-                          children: [
-                            _iconBox(Icons.calendar_month_outlined),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Date',
-                                    style: TextStyle(
-                                      color: greyText,
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    _formattedDate(),
-                                    style: const TextStyle(
-                                      color: darkText,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.edit_calendar_outlined,
-                              color: primaryBlue,
-                              size: 23,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    _workoutInfoCard(),
 
                     const SizedBox(height: 14),
 
@@ -317,27 +327,124 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: _reviewWorkout,
+                  onPressed: _isSaving ? null : _saveWorkout,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFF9BB7EA),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     elevation: 2,
                   ),
-                  child: const Text(
-                    'Review Workout',
-                    style: TextStyle(
-                      fontSize: 17.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.4,
+                          ),
+                        )
+                      : const Text(
+                          'Save Workout',
+                          style: TextStyle(
+                            fontSize: 17.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _workoutInfoCard() {
+    return _card(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 9,
+            child: InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                height: 54,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FBFE),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFFB7C1D3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_outlined,
+                      color: primaryBlue,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Date',
+                            style: TextStyle(
+                              color: greyText,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            _formattedDate(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: darkText,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            flex: 13,
+            child: SizedBox(
+              height: 54,
+              child: TextField(
+                controller: _workoutNameController,
+                textInputAction: TextInputAction.next,
+                style: const TextStyle(
+                  color: darkText,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: _compactInputDecoration(
+                  hintText: 'Workout name',
+                  prefixIcon: Icons.edit_outlined,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -566,7 +673,7 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
                 TextField(
                   controller: _notesController,
                   minLines: 2,
-                  maxLines: 7,
+                  maxLines: 5,
                   maxLength: 200,
                   keyboardType: TextInputType.multiline,
                   style: const TextStyle(
@@ -740,6 +847,52 @@ class _GymWorkoutScreenState extends State<GymWorkoutScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  InputDecoration _compactInputDecoration({
+    required String hintText,
+    IconData? prefixIcon,
+  }) {
+    return InputDecoration(
+      isDense: true,
+      hintText: hintText,
+      prefixIcon: prefixIcon == null
+          ? null
+          : Icon(
+              prefixIcon,
+              color: primaryBlue,
+              size: 20,
+            ),
+      prefixIconConstraints: const BoxConstraints(
+        minWidth: 38,
+        minHeight: 38,
+      ),
+      hintStyle: const TextStyle(
+        color: Color(0xFF667085),
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 15,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(
+          color: Color(0xFFB7C1D3),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(
+          color: primaryBlue,
+          width: 1.7,
+        ),
       ),
     );
   }
