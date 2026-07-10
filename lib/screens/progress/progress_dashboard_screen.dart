@@ -6,6 +6,7 @@ import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
 import 'exercise_history/workout_session_detail_screen.dart';
+import 'exercise_history/exercise_detail_screen.dart';
 import 'trends/trends_screen.dart';
 import '../../models/progress/weight_entry.dart';
 import '../../models/progress/workout_entry.dart';
@@ -533,6 +534,22 @@ class ProgressDashboardScreen extends StatelessWidget {
     }
   }
 
+  num? _numberValue(dynamic value) {
+    if (value is num) {
+      return value;
+    }
+
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  String _formatNumber(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
+  }
+
   String _recentWorkoutTitle(WorkoutEntry workout) {
     final name = workout.workoutName.trim();
 
@@ -569,6 +586,40 @@ class ProgressDashboardScreen extends StatelessWidget {
     }
 
     return parts.join(' • ');
+  }
+
+  String _cardioLatestDetails(WorkoutEntry workout) {
+    if (workout.exercises.isEmpty) {
+      return _recentWorkoutDetails(workout);
+    }
+
+    final exercise = workout.exercises.first;
+    final parts = <String>[];
+
+    final distance = _numberValue(exercise['distanceKm']);
+    final duration = _numberValue(exercise['durationMinutes']);
+    final steps = _numberValue(exercise['steps']);
+    final calories = _numberValue(exercise['caloriesBurned']);
+
+    if (distance != null) {
+      parts.add('${_formatNumber(distance)} km');
+    }
+
+    if (duration != null) {
+      parts.add('${_formatNumber(duration)} min');
+    } else if (workout.durationMinutes > 0) {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    if (steps != null) {
+      parts.add('${_formatNumber(steps)} steps');
+    }
+
+    if (calories != null) {
+      parts.add('${_formatNumber(calories)} kcal');
+    }
+
+    return parts.isEmpty ? _recentWorkoutDetails(workout) : parts.join(' • ');
   }
 
   String _recentWorkoutTime(DateTime date) {
@@ -1299,6 +1350,20 @@ class ProgressDashboardScreen extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
+          if (workout.workoutType == 'Cardio') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ExerciseDetailScreen(
+                  exerciseName: _recentWorkoutTitle(workout),
+                  workoutType: workout.workoutType,
+                  latestDetails: _cardioLatestDetails(workout),
+                ),
+              ),
+            );
+            return;
+          }
+
           Navigator.push(
             context,
             MaterialPageRoute(

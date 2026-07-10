@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/progress/workout_entry.dart';
 import '../../../services/progress/workout_firestore_service.dart';
 import 'workout_session_detail_screen.dart';
+import 'exercise_detail_screen.dart';
 
 class ExerciseHistoryScreen extends StatefulWidget {
   const ExerciseHistoryScreen({super.key});
@@ -103,7 +104,62 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     return '${difference ~/ 7} weeks ago';
   }
 
+  num? _numberValue(dynamic value) {
+    if (value is num) {
+      return value;
+    }
+
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  String _formatNumber(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
+  }
+
+  String _cardioWorkoutDetails(WorkoutEntry workout) {
+    final parts = <String>['Cardio'];
+
+    if (workout.exercises.isNotEmpty) {
+      final exercise = workout.exercises.first;
+
+      final distance = _numberValue(exercise['distanceKm']);
+      final duration = _numberValue(exercise['durationMinutes']);
+      final steps = _numberValue(exercise['steps']);
+      final calories = _numberValue(exercise['caloriesBurned']);
+
+      if (distance != null) {
+        parts.add('${_formatNumber(distance)} km');
+      }
+
+      if (duration != null) {
+        parts.add('${_formatNumber(duration)} min');
+      } else if (workout.durationMinutes > 0) {
+        parts.add('${workout.durationMinutes} min');
+      }
+
+      if (steps != null) {
+        parts.add('${_formatNumber(steps)} steps');
+      }
+
+      if (calories != null) {
+        parts.add('${_formatNumber(calories)} kcal');
+      }
+    } else if (workout.durationMinutes > 0) {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    return parts.join(' • ');
+  }
+
   String _workoutDetails(WorkoutEntry workout) {
+    if (workout.workoutType == 'Cardio') {
+      return _cardioWorkoutDetails(workout);
+    }
+
     final count = workout.exercises.length;
     final parts = <String>[
       workout.workoutType,
@@ -118,6 +174,20 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
   }
 
   void _openWorkoutDetail(WorkoutEntry workout) {
+    if (workout.workoutType == 'Cardio') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ExerciseDetailScreen(
+            exerciseName: workout.workoutName,
+            workoutType: workout.workoutType,
+            latestDetails: _cardioWorkoutDetails(workout),
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
