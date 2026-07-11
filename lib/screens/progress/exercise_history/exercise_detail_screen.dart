@@ -206,9 +206,7 @@ class ExerciseDetailScreen extends StatelessWidget {
         parts.add('${_formatNumber(sets)} sets');
       }
 
-      return parts.isEmpty
-          ? '${occurrence.workout.durationMinutes} min workout'
-          : parts.join(' × ');
+      return parts.isEmpty ? 'No details saved' : parts.join(' × ');
     }
 
     if (workoutType == 'Cardio') {
