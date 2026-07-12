@@ -14,6 +14,15 @@ Future<void> main() async {
   runApp(const FitzaApp());
 }
 
+class FitzaThemeController {
+  static final ValueNotifier<ThemeMode> themeMode =
+      ValueNotifier<ThemeMode>(ThemeMode.system);
+
+  static void setDarkModeEnabled(bool isEnabled) {
+    themeMode.value = isEnabled ? ThemeMode.dark : ThemeMode.system;
+  }
+}
+
 class FitzaApp extends StatelessWidget {
   const FitzaApp({super.key});
 
@@ -237,13 +246,18 @@ class FitzaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Fitza',
-      theme: _lightTheme(),
-      darkTheme: _darkTheme(),
-      themeMode: ThemeMode.system,
-      home: const AuthGate(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: FitzaThemeController.themeMode,
+      builder: (context, themeMode, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Fitza',
+          theme: _lightTheme(),
+          darkTheme: _darkTheme(),
+          themeMode: themeMode,
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }
