@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../services/progress/workout_firestore_service.dart';
 
 class CardioWorkoutScreen extends StatefulWidget {
@@ -10,10 +11,6 @@ class CardioWorkoutScreen extends StatefulWidget {
 }
 
 class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
   static const Color cardioOrange = Colors.orange;
 
   final TextEditingController _activityController = TextEditingController();
@@ -68,6 +65,14 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
     _notesController.dispose();
     _activityFocusNode.dispose();
     super.dispose();
+  }
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
   }
 
   Future<void> _pickDate() async {
@@ -195,6 +200,8 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
     return OverlayEntry(
       builder: (context) {
         final suggestions = _filteredActivitySuggestions();
+        final fitzaColors = _colors(context);
+        final isDarkMode = _isDark(context);
 
         if (suggestions.isEmpty) {
           return const SizedBox.shrink();
@@ -215,16 +222,18 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
                   maxHeight: 190,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: fitzaColors.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: const Color(0xFFE1E7F0),
+                    color: fitzaColors.border,
                   ),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x22000000),
+                      color: isDarkMode
+                          ? const Color(0x66000000)
+                          : const Color(0x22000000),
                       blurRadius: 16,
-                      offset: Offset(0, 8),
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
@@ -233,9 +242,9 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
                   shrinkWrap: true,
                   itemCount: suggestions.length,
                   separatorBuilder: (_, __) {
-                    return const Divider(
+                    return Divider(
                       height: 1,
-                      color: Color(0xFFE5EAF2),
+                      color: fitzaColors.border,
                     );
                   },
                   itemBuilder: (context, index) {
@@ -268,8 +277,8 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
                             Expanded(
                               child: Text(
                                 suggestion,
-                                style: const TextStyle(
-                                  color: darkText,
+                                style: TextStyle(
+                                  color: fitzaColors.primaryText,
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -577,8 +586,10 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -593,18 +604,18 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
                           onPressed: _isSaving
                               ? null
                               : () => Navigator.pop(context),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.arrow_back_rounded,
-                            color: darkText,
+                            color: fitzaColors.primaryText,
                             size: 29,
                           ),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Cardio Workout',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: darkText,
+                              color: fitzaColors.primaryText,
                               fontSize: 25,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.3,
@@ -643,26 +654,30 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveWorkout,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF9BB7EA),
+                    backgroundColor: fitzaColors.primaryBlue,
+                    foregroundColor: fitzaColors.textOnBlue,
+                    disabledBackgroundColor: _isDark(context)
+                        ? const Color(0xFF375C9F)
+                        : const Color(0xFF9BB7EA),
+                    disabledForegroundColor: fitzaColors.textOnBlue,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    elevation: 2,
+                    elevation: _isDark(context) ? 0 : 2,
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 22,
                           width: 22,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            color: fitzaColors.textOnBlue,
                             strokeWidth: 2.4,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           'Save Workout',
                           style: TextStyle(
+                            color: fitzaColors.textOnBlue,
                             fontSize: 17.5,
                             fontWeight: FontWeight.w800,
                           ),
@@ -677,161 +692,179 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
   }
 
   Widget _dateCard() {
-    return _card(
-      child: InkWell(
-        onTap: _pickDate,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FBFE),
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
+
+        return _card(
+          child: InkWell(
+            onTap: _pickDate,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: const Color(0xFFB7C1D3),
+            child: Container(
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: fitzaColors.inputSurface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: fitzaColors.border,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_month_outlined,
+                    color: cardioOrange,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Date',
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _formattedDate(),
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.calendar_month_outlined,
-                color: cardioOrange,
-                size: 22,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Date',
-                style: TextStyle(
-                  color: greyText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _formattedDate(),
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: darkText,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _cardioDetailsCard() {
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Cardio Details',
-            style: TextStyle(
-              color: greyText,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
 
-          const SizedBox(height: 12),
-
-          _activitySearchField(),
-
-          const SizedBox(height: 16),
-
-          Row(
+        return _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _smallInput(
-                  label: 'Duration',
-                  controller: _durationController,
-                  hintText: '30',
-                  suffix: 'min',
-                  icon: Icons.schedule_outlined,
-                  requiredLabel: true,
+              Text(
+                'Cardio Details',
+                style: TextStyle(
+                  color: fitzaColors.secondaryText,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _smallInput(
-                  label: 'Distance',
-                  controller: _distanceController,
-                  hintText: '4.5',
-                  suffix: 'km',
-                  icon: Icons.location_on_outlined,
-                  requiredLabel: false,
-                  allowDecimal: true,
-                ),
+
+              const SizedBox(height: 12),
+
+              _activitySearchField(),
+
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _smallInput(
+                      label: 'Duration',
+                      controller: _durationController,
+                      hintText: '30',
+                      suffix: 'min',
+                      icon: Icons.schedule_outlined,
+                      requiredLabel: true,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _smallInput(
+                      label: 'Distance',
+                      controller: _distanceController,
+                      hintText: '4.5',
+                      suffix: 'km',
+                      icon: Icons.location_on_outlined,
+                      requiredLabel: false,
+                      allowDecimal: true,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _smallInput(
+                      label: 'Steps',
+                      controller: _stepsController,
+                      hintText: '6500',
+                      icon: Icons.directions_walk_outlined,
+                      requiredLabel: false,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _smallInput(
+                      label: 'Calories',
+                      controller: _caloriesController,
+                      hintText: '320',
+                      suffix: 'kcal',
+                      icon: Icons.local_fire_department_outlined,
+                      requiredLabel: false,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _smallInput(
-                  label: 'Steps',
-                  controller: _stepsController,
-                  hintText: '6500',
-                  icon: Icons.directions_walk_outlined,
-                  requiredLabel: false,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _smallInput(
-                  label: 'Calories',
-                  controller: _caloriesController,
-                  hintText: '320',
-                  suffix: 'kcal',
-                  icon: Icons.local_fire_department_outlined,
-                  requiredLabel: false,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _activitySearchField() {
-    return CompositedTransformTarget(
-      link: _activityFieldLink,
-      child: TextField(
-        controller: _activityController,
-        focusNode: _activityFocusNode,
-        textInputAction: TextInputAction.next,
-        onChanged: (_) {
-          setState(() {});
-          _refreshActivitySuggestionsOverlay();
-        },
-        onTap: () {
-          if (_activityController.text.trim().isNotEmpty) {
-            _refreshActivitySuggestionsOverlay();
-          }
-        },
-        style: const TextStyle(
-          color: darkText,
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
-        ),
-        decoration: _inputDecoration(
-          hintText: 'Search or enter cardio',
-          prefixIcon: _activityIcon(_activityName),
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
+
+        return CompositedTransformTarget(
+          link: _activityFieldLink,
+          child: TextField(
+            controller: _activityController,
+            focusNode: _activityFocusNode,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) {
+              setState(() {});
+              _refreshActivitySuggestionsOverlay();
+            },
+            onTap: () {
+              if (_activityController.text.trim().isNotEmpty) {
+                _refreshActivitySuggestionsOverlay();
+              }
+            },
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+            decoration: _inputDecoration(
+              hintText: 'Search or enter cardio',
+              prefixIcon: _activityIcon(_activityName),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -843,32 +876,38 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
           _iconBox(Icons.edit_note_outlined),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Notes (optional)',
-                  style: TextStyle(
-                    color: greyText,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _notesController,
-                  minLines: 2,
-                  maxLines: 5,
-                  maxLength: 200,
-                  keyboardType: TextInputType.multiline,
-                  style: const TextStyle(
-                    color: darkText,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: _notesInputDecoration(),
-                ),
-              ],
+            child: Builder(
+              builder: (context) {
+                final fitzaColors = _colors(context);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Notes (optional)',
+                      style: TextStyle(
+                        color: fitzaColors.secondaryText,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _notesController,
+                      minLines: 2,
+                      maxLines: 5,
+                      maxLength: 200,
+                      keyboardType: TextInputType.multiline,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: _notesInputDecoration(),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -877,38 +916,48 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
   }
 
   Widget _estimateInfoCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4E5),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Row(
-        children: [
-          CircleAvatar(
-            radius: 21,
-            backgroundColor: Color(0xFFFFE2B8),
-            child: Icon(
-              Icons.info_outline_rounded,
-              color: cardioOrange,
-              size: 23,
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: cardioOrange.withValues(
+              alpha: _isDark(context) ? 0.16 : 0.10,
             ),
+            borderRadius: BorderRadius.circular(18),
           ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'If steps or calories are empty, Fitza will estimate them from activity, duration and distance.',
-              style: TextStyle(
-                color: darkText,
-                fontSize: 13.5,
-                height: 1.35,
-                fontWeight: FontWeight.w500,
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 21,
+                backgroundColor: cardioOrange.withValues(
+                  alpha: _isDark(context) ? 0.22 : 0.16,
+                ),
+                child: const Icon(
+                  Icons.info_outline_rounded,
+                  color: cardioOrange,
+                  size: 23,
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'If steps or calories are empty, Fitza will estimate them from activity, duration and distance.',
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
+                    fontSize: 13.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -921,83 +970,103 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
     String? suffix,
     bool allowDecimal = false,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              color: cardioOrange,
-              size: 19,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                requiredLabel ? label : '$label (optional)',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: greyText,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: cardioOrange,
+                  size: 19,
                 ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    requiredLabel ? label : '$label (optional)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.numberWithOptions(
+                decimal: allowDecimal,
+              ),
+              style: TextStyle(
+                color: fitzaColors.primaryText,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: _inputDecoration(
+                hintText: hintText,
+                suffixText: suffix,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 7),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(
-            decimal: allowDecimal,
-          ),
-          style: const TextStyle(
-            color: darkText,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: _inputDecoration(
-            hintText: hintText,
-            suffixText: suffix,
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
   Widget _card({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            color: fitzaColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: _isDark(context)
+                    ? const Color(0x33000000)
+                    : const Color(0x0F000000),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: child,
+          child: child,
+        );
+      },
     );
   }
 
   Widget _iconBox(IconData icon) {
-    return Container(
-      height: 46,
-      width: 46,
-      decoration: BoxDecoration(
-        color: cardioOrange.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Icon(
-        icon,
-        color: cardioOrange,
-        size: 24,
-      ),
+    return Builder(
+      builder: (context) {
+        return Container(
+          height: 46,
+          width: 46,
+          decoration: BoxDecoration(
+            color: cardioOrange.withValues(
+              alpha: _isDark(context) ? 0.20 : 0.10,
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            icon,
+            color: cardioOrange,
+            size: 24,
+          ),
+        );
+      },
     );
   }
 
@@ -1006,8 +1075,12 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
     String? suffixText,
     IconData? prefixIcon,
   }) {
+    final fitzaColors = _colors(context);
+
     return InputDecoration(
       hintText: hintText,
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
       prefixIcon: prefixIcon == null
           ? null
           : Icon(
@@ -1020,13 +1093,13 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
         minHeight: 42,
       ),
       suffixText: suffixText,
-      suffixStyle: const TextStyle(
-        color: darkText,
+      suffixStyle: TextStyle(
+        color: fitzaColors.primaryText,
         fontSize: 13,
         fontWeight: FontWeight.w800,
       ),
-      hintStyle: const TextStyle(
-        color: Color(0xFF667085),
+      hintStyle: TextStyle(
+        color: fitzaColors.secondaryText,
         fontSize: 14.5,
         fontWeight: FontWeight.w500,
       ),
@@ -1039,8 +1112,8 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: Color(0xFFB7C1D3),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
         ),
       ),
       focusedBorder: OutlineInputBorder(
@@ -1054,15 +1127,19 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
   }
 
   InputDecoration _notesInputDecoration() {
+    final fitzaColors = _colors(context);
+
     return InputDecoration(
       hintText: 'How did the cardio session feel?',
-      hintStyle: const TextStyle(
-        color: Color(0xFF667085),
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
+      hintStyle: TextStyle(
+        color: fitzaColors.secondaryText,
         fontSize: 14.5,
         fontWeight: FontWeight.w500,
       ),
-      counterStyle: const TextStyle(
-        color: Color(0xFF667085),
+      counterStyle: TextStyle(
+        color: fitzaColors.secondaryText,
         fontSize: 11,
       ),
       alignLabelWithHint: true,
@@ -1075,8 +1152,8 @@ class _CardioWorkoutScreenState extends State<CardioWorkoutScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: Color(0xFFB7C1D3),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
         ),
       ),
       focusedBorder: OutlineInputBorder(

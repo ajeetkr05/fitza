@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../main.dart';
 import '../../models/profile/user_profile.dart';
 import '../../models/progress/weight_entry.dart';
-import '../../services/auth/auth_service.dart';
+import '../../models/progress/workout_entry.dart';
 import '../../services/profile/profile_firestore_service.dart';
 import '../../services/progress/weight_firestore_service.dart';
+import '../../services/progress/workout_firestore_service.dart';
 import '../../widgets/app_bottom_navigation.dart';
-import '../../widgets/fitza_header.dart';
 import '../progress/exercise_history/exercise_history_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int selectedIndex;
@@ -26,87 +28,126 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   static const Color primaryBlue = Color(0xFF1555C0);
   static const Color accentBlue = Color(0xFF42A5F5);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
   static const Color successGreen = Color(0xFF2E7D32);
+  static const Color orange = Colors.orange;
 
-  Future<void> _signOut(BuildContext context) async {
-    final shouldSignOut = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Sign out?'),
-          content: const Text(
-            'You will need to log in again to access your Fitza account.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text(
-                'Sign Out',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.10);
+  }
+
+  WeightEntry? _latestWeightEntry(List<WeightEntry> entries) {
+    if (entries.isEmpty) {
+      return null;
+    }
+
+    return entries.last;
+  }
+
+  String _formatWeight(UserProfile profile, WeightEntry? entry) {
+    final weight = entry?.weightKg ?? profile.weightKg;
+
+    if (weight == null) {
+      return '—';
+    }
+
+    return '${weight.toStringAsFixed(1)} kg';
+  }
+
+  String _formatHeight(UserProfile profile, WeightEntry? entry) {
+    final height = entry?.heightCm ?? profile.heightCm;
+
+    if (height == null) {
+      return '—';
+    }
+
+    return '${height.toStringAsFixed(0)} cm';
+  }
+
+  String _formatAge(UserProfile profile) {
+    if (profile.age == null) {
+      return '—';
+    }
+
+    return profile.age.toString();
+  }
+
+  String _currentBmi(UserProfile profile, WeightEntry? entry) {
+    final weight = entry?.weightKg ?? profile.weightKg;
+    final height = entry?.heightCm ?? profile.heightCm;
+
+    if (weight == null || height == null || height <= 0) {
+      return '—';
+    }
+
+    final heightM = height / 100;
+    final bmi = weight / (heightM * heightM);
+
+    return bmi.toStringAsFixed(1);
+  }
+
+  int _currentStreak(List<WorkoutEntry> workouts) {
+    if (workouts.isEmpty) {
+      return 0;
+    }
+
+    final workoutDays = workouts.map((workout) {
+      final date = workout.recordedAt;
+      return DateTime(date.year, date.month, date.day);
+    }).toSet();
+
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final yesterday = todayOnly.subtract(const Duration(days: 1));
+
+    DateTime cursor;
+
+    if (workoutDays.contains(todayOnly)) {
+      cursor = todayOnly;
+    } else if (workoutDays.contains(yesterday)) {
+      cursor = yesterday;
+    } else {
+      return 0;
+    }
+
+    var streak = 0;
+
+    while (workoutDays.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
+  String _memberSinceText(UserProfile profile) {
+    return profile.profileSetupCompleted ? 'Active' : 'New';
+  }
+
+  Future<void> _openSettings(UserProfile profile) async {
+    final updatedProfile = await Navigator.push<UserProfile>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(profile: profile),
+      ),
     );
 
-    if (shouldSignOut != true) {
-      return;
-    }
-
-    try {
-      await AuthService.instance.signOut();
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not sign out. Please try again.'),
-        ),
-      );
+    if (updatedProfile != null && mounted) {
+      FitzaThemeController.setDarkModeEnabled(updatedProfile.darkModeEnabled);
     }
   }
 
-  Future<void> _updatePreference({
-    required String fieldName,
-    required bool value,
+  Future<void> _showEditProfileSheet(
+    UserProfile profile, {
+    bool focusGoal = false,
   }) async {
-    try {
-      await ProfileFirestoreService.instance.updatePreference(
-        fieldName: fieldName,
-        value: value,
-      );
-
-      if (fieldName == 'darkModeEnabled' && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Dark mode preference saved. UI theme will be added later.'),
-          ),
-        );
-      }
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not update preference. Please try again.'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _showEditProfileSheet(UserProfile profile) async {
     final formKey = GlobalKey<FormState>();
 
     final nameController = TextEditingController(
@@ -158,56 +199,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-          Future<void> saveProfile() async {
-            if (!formKey.currentState!.validate()) {
-              return;
-            }
+            final fitzaColors = _colors(sheetContext);
 
-            setSheetState(() {
-              isSaving = true;
-            });
-
-            try {
-              await ProfileFirestoreService.instance.updateProfileDetails(
-                displayName: nameController.text,
-                age: ageController.text.trim().isEmpty
-                    ? null
-                    : int.tryParse(ageController.text.trim()),
-                goal: selectedGoal,
-                activityLevel: selectedActivity,
-                location: selectedLocation,
-              );
-
-              if (!sheetContext.mounted) {
-                return;
-              }
-
-              Navigator.pop(sheetContext);
-            } catch (_) {
-              if (!sheetContext.mounted) {
+            Future<void> saveProfile() async {
+              if (!formKey.currentState!.validate()) {
                 return;
               }
 
               setSheetState(() {
-                isSaving = false;
+                isSaving = true;
               });
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Could not save profile. Please try again.'),
-                ),
-              );
+              try {
+                await ProfileFirestoreService.instance.updateProfileDetails(
+                  displayName: nameController.text.trim(),
+                  age: ageController.text.trim().isEmpty
+                      ? null
+                      : int.tryParse(ageController.text.trim()),
+                  goal: selectedGoal,
+                  activityLevel: selectedActivity,
+                  location: selectedLocation,
+                );
+
+                if (!sheetContext.mounted) {
+                  return;
+                }
+
+                Navigator.pop(sheetContext);
+              } catch (_) {
+                if (!sheetContext.mounted) {
+                  return;
+                }
+
+                setSheetState(() {
+                  isSaving = false;
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not save profile. Please try again.'),
+                  ),
+                );
+              }
             }
-          }
 
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
               ),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
+                decoration: BoxDecoration(
+                  color: fitzaColors.surface,
+                  borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(26),
                   ),
                 ),
@@ -226,67 +269,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               height: 4,
                               width: 44,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFD1D5DB),
+                                color: fitzaColors.border,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                           ),
+
                           const SizedBox(height: 20),
-                          const Text(
-                            'Edit Profile',
+
+                          Text(
+                            focusGoal ? 'Update Fitness Goal' : 'Edit Profile',
                             style: TextStyle(
-                              color: darkText,
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
+                              color: fitzaColors.primaryText,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
+
                           const SizedBox(height: 20),
-                          TextFormField(
-                            controller: nameController,
-                            textInputAction: TextInputAction.next,
-                            decoration: _inputDecoration(
-                              label: 'Display Name',
-                              icon: Icons.person_outline_rounded,
-                            ),
-                            validator: (value) {
-                              if ((value ?? '').trim().isEmpty) {
-                                return 'Enter your display name.';
-                              }
 
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                          TextFormField(
-                            controller: ageController,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.done,
-                            decoration: _inputDecoration(
-                              label: 'Age',
-                              icon: Icons.calendar_today_outlined,
-                            ),
-                            validator: (value) {
-                              final text = value?.trim() ?? '';
+                          if (!focusGoal) ...[
+                            TextFormField(
+                              controller: nameController,
+                              textInputAction: TextInputAction.next,
+                              style: TextStyle(
+                                color: fitzaColors.primaryText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: _inputDecoration(
+                                sheetContext,
+                                label: 'Display Name',
+                                icon: Icons.person_outline_rounded,
+                              ),
+                              validator: (value) {
+                                if ((value ?? '').trim().isEmpty) {
+                                  return 'Enter your display name.';
+                                }
 
-                              if (text.isEmpty) {
                                 return null;
-                              }
+                              },
+                            ),
 
-                              final age = int.tryParse(text);
+                            const SizedBox(height: 14),
 
-                              if (age == null || age < 10 || age > 100) {
-                                return 'Enter a valid age between 10 and 100.';
-                              }
+                            TextFormField(
+                              controller: ageController,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.done,
+                              style: TextStyle(
+                                color: fitzaColors.primaryText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: _inputDecoration(
+                                sheetContext,
+                                label: 'Age',
+                                icon: Icons.calendar_today_outlined,
+                              ),
+                              validator: (value) {
+                                final text = value?.trim() ?? '';
 
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
+                                if (text.isEmpty) {
+                                  return null;
+                                }
+
+                                final age = int.tryParse(text);
+
+                                if (age == null || age < 10 || age > 100) {
+                                  return 'Enter a valid age between 10 and 100.';
+                                }
+
+                                return null;
+                              },
+                            ),
+
+                            const SizedBox(height: 14),
+                          ],
+
                           DropdownButtonFormField<String>(
                             value: selectedGoal,
+                            dropdownColor: fitzaColors.surface,
                             decoration: _inputDecoration(
+                              sheetContext,
                               label: 'Goal',
                               icon: Icons.track_changes_rounded,
+                            ),
+                            style: TextStyle(
+                              color: fitzaColors.primaryText,
+                              fontWeight: FontWeight.w600,
                             ),
                             items: goalOptions
                                 .map(
@@ -308,12 +377,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     });
                                   },
                           ),
+
                           const SizedBox(height: 14),
+
                           DropdownButtonFormField<String>(
                             value: selectedActivity,
+                            dropdownColor: fitzaColors.surface,
                             decoration: _inputDecoration(
+                              sheetContext,
                               label: 'Activity Level',
                               icon: Icons.bar_chart_rounded,
+                            ),
+                            style: TextStyle(
+                              color: fitzaColors.primaryText,
+                              fontWeight: FontWeight.w600,
                             ),
                             items: activityOptions
                                 .map(
@@ -335,12 +412,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     });
                                   },
                           ),
+
                           const SizedBox(height: 14),
+
                           DropdownButtonFormField<String>(
                             value: selectedLocation,
+                            dropdownColor: fitzaColors.surface,
                             decoration: _inputDecoration(
-                              label: 'Location',
+                              sheetContext,
+                              label: 'Workout Location',
                               icon: Icons.location_on_outlined,
+                            ),
+                            style: TextStyle(
+                              color: fitzaColors.primaryText,
+                              fontWeight: FontWeight.w600,
                             ),
                             items: locationOptions
                                 .map(
@@ -362,33 +447,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     });
                                   },
                           ),
+
                           const SizedBox(height: 22),
+
                           SizedBox(
                             width: double.infinity,
-                            height: 56,
+                            height: 54,
                             child: ElevatedButton(
                               onPressed: isSaving ? null : saveProfile,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryBlue,
-                                foregroundColor: Colors.white,
+                                backgroundColor: fitzaColors.primaryBlue,
+                                foregroundColor: fitzaColors.textOnBlue,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               child: isSaving
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 23,
                                       width: 23,
                                       child: CircularProgressIndicator(
-                                        color: Colors.white,
+                                        color: fitzaColors.textOnBlue,
                                         strokeWidth: 2.5,
                                       ),
                                     )
-                                  : const Text(
-                                      'Save Profile',
+                                  : Text(
+                                      'Save Changes',
                                       style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                        color: fitzaColors.textOnBlue,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                             ),
@@ -409,70 +497,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ageController.dispose();
   }
 
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Color(0xFFD1D5DB),
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: primaryBlue,
-          width: 2,
-        ),
+  void _showComingSoon(String title) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title will be added later.'),
       ),
     );
   }
 
-  WeightEntry? _latestWeightEntry(List<WeightEntry> entries) {
-    if (entries.isEmpty) {
-      return null;
-    }
-
-    return entries.last;
-  }
-
-  String _formatWeight(WeightEntry? entry) {
-    if (entry == null) {
-      return '—';
-    }
-
-    return '${entry.weightKg.toStringAsFixed(1)} kg';
-  }
-
-  String _formatHeight(UserProfile profile, WeightEntry? entry) {
-    final height = entry?.heightCm ?? profile.heightCm;
-
-    if (height == null) {
-      return '—';
-    }
-
-    return '${height.toStringAsFixed(0)} cm';
-  }
-
-  String _formatAge(UserProfile profile) {
-    if (profile.age == null) {
-      return '—';
-    }
-
-    return profile.age.toString();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: fitzaColors.background,
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: widget.selectedIndex,
         onTap: widget.onTabChanged,
@@ -493,185 +531,617 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return _statusScreen(
                 message: 'Loading profile...',
                 icon: Icons.hourglass_top_rounded,
-                iconColor: primaryBlue,
+                iconColor: fitzaColors.primaryBlue,
                 isLoading: true,
               );
             }
 
             final profile = profileSnapshot.data!;
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-              child: StreamBuilder<List<WeightEntry>>(
-                stream: WeightFirestoreService.instance.getWeightEntriesStream(),
-                builder: (context, weightSnapshot) {
-                  final latestEntry = weightSnapshot.hasData
-                      ? _latestWeightEntry(weightSnapshot.data!)
-                      : null;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              FitzaThemeController.setDarkModeEnabled(
+                profile.darkModeEnabled,
+              );
+            });
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _topBar(),
-                      const SizedBox(height: 20),
-                      _profileHeroCard(profile),
-                      const SizedBox(height: 18),
-                      _profileStatsGrid(profile, latestEntry),
-                      const SizedBox(height: 18),
-                      _sectionCard(
-                        title: 'Preferences',
+            return StreamBuilder<List<WeightEntry>>(
+              stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+              builder: (context, weightSnapshot) {
+                final latestEntry = weightSnapshot.hasData
+                    ? _latestWeightEntry(weightSnapshot.data!)
+                    : null;
+
+                return StreamBuilder<List<WorkoutEntry>>(
+                  stream:
+                      WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+                  builder: (context, workoutSnapshot) {
+                    final List<WorkoutEntry> workouts = workoutSnapshot.hasData
+                        ? workoutSnapshot.data!
+                        : <WorkoutEntry>[];
+
+                    final streak = _currentStreak(workouts);
+
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _switchRow(
-                            icon: Icons.dark_mode_outlined,
-                            title: 'Dark Mode',
-                            value: profile.darkModeEnabled,
-                            onChanged: (value) => _updatePreference(
-                              fieldName: 'darkModeEnabled',
-                              value: value,
-                            ),
+                          _topBar(profile),
+
+                          const SizedBox(height: 14),
+
+                          _profileHeroCard(profile),
+
+                          const SizedBox(height: 14),
+
+                          _sectionTitle('Personal Fitness Details'),
+
+                          const SizedBox(height: 10),
+
+                          _detailsGrid(
+                            items: [
+                              _ProfileInfoItem(
+                                icon: Icons.calendar_today_outlined,
+                                value: _formatAge(profile),
+                                label: 'Age',
+                                color: primaryBlue,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.height_rounded,
+                                value: _formatHeight(profile, latestEntry),
+                                label: 'Height',
+                                color: primaryBlue,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.monitor_weight_outlined,
+                                value: _formatWeight(profile, latestEntry),
+                                label: 'Weight',
+                                color: primaryBlue,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.track_changes_rounded,
+                                value: profile.goal,
+                                label: 'Goal',
+                                color: successGreen,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.bar_chart_rounded,
+                                value: profile.activityLevel,
+                                label: 'Activity Level',
+                                color: orange,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.location_on_outlined,
+                                value: profile.location,
+                                label: 'Workout Location',
+                                color: accentBlue,
+                              ),
+                            ],
                           ),
-                          _divider(),
-                          _switchRow(
-                            icon: Icons.notifications_none_rounded,
-                            title: 'Notifications',
-                            value: profile.notificationsEnabled,
-                            onChanged: (value) => _updatePreference(
-                              fieldName: 'notificationsEnabled',
-                              value: value,
-                            ),
+
+                          const SizedBox(height: 16),
+
+                          _sectionTitle('Fitness Summary'),
+
+                          const SizedBox(height: 10),
+
+                          _summaryGrid(
+                            items: [
+                              _ProfileInfoItem(
+                                icon: Icons.monitor_weight_outlined,
+                                value: _currentBmi(profile, latestEntry),
+                                label: 'Current BMI',
+                                color: primaryBlue,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.local_fire_department_outlined,
+                                value: '$streak days',
+                                label: 'Current Streak',
+                                color: orange,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.fitness_center_outlined,
+                                value: workouts.length.toString(),
+                                label: 'Workouts Completed',
+                                color: successGreen,
+                              ),
+                              _ProfileInfoItem(
+                                icon: Icons.workspace_premium_outlined,
+                                value: _memberSinceText(profile),
+                                label: 'Member Since',
+                                color: accentBlue,
+                              ),
+                            ],
                           ),
-                          _divider(),
-                          _switchRow(
-                            icon: Icons.event_available_outlined,
-                            title: 'Workout Reminders',
-                            value: profile.workoutRemindersEnabled,
-                            onChanged: (value) => _updatePreference(
-                              fieldName: 'workoutRemindersEnabled',
-                              value: value,
-                            ),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.straighten_rounded,
-                            title: 'Measurement Units',
-                            onTap: () => _showComingSoon('Measurement units'),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.volume_up_outlined,
-                            title: 'Sound & Haptics',
-                            onTap: () => _showComingSoon('Sound and haptics'),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.privacy_tip_outlined,
-                            title: 'Privacy',
-                            onTap: () => _showComingSoon('Privacy settings'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      _sectionCard(
-                        title: 'Account',
-                        children: [
-                          _navigationRow(
-                            icon: Icons.person_outline_rounded,
-                            title: 'Edit Profile',
-                            onTap: () => _showEditProfileSheet(profile),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.badge_outlined,
-                            title: 'Personal Details',
-                            onTap: () => _showEditProfileSheet(profile),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.fitness_center_outlined,
-                            title: 'Workout History',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const ExerciseHistoryScreen(),
+
+                          const SizedBox(height: 16),
+
+                          _sectionCard(
+                            title: 'Profile Actions',
+                            children: [
+                              _navigationRow(
+                                icon: Icons.person_outline_rounded,
+                                title: 'Edit Profile',
+                                subtitle: 'Update your basic profile details',
+                                onTap: () => _showEditProfileSheet(profile),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.track_changes_rounded,
+                                title: 'Update Fitness Goal',
+                                subtitle: 'Change your goal and activity level',
+                                onTap: () => _showEditProfileSheet(
+                                  profile,
+                                  focusGoal: true,
                                 ),
-                              );
-                            },
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.watch_outlined,
-                            title: 'Connected Devices',
-                            onTap: () => _showComingSoon('Connected devices'),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.workspace_premium_outlined,
-                            title: 'Subscription / Premium',
-                            onTap: () => _showComingSoon('Subscription'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      _sectionCard(
-                        title: 'Support',
-                        children: [
-                          _navigationRow(
-                            icon: Icons.help_outline_rounded,
-                            title: 'Help & Support',
-                            onTap: () => _showComingSoon('Help and support'),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.security_outlined,
-                            title: 'Privacy & Security',
-                            onTap: () =>
-                                _showComingSoon('Privacy and security'),
-                          ),
-                          _divider(),
-                          _navigationRow(
-                            icon: Icons.info_outline_rounded,
-                            title: 'About Fitza',
-                            onTap: () => _showComingSoon('About Fitza'),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.emoji_events_outlined,
+                                title: 'View Achievements',
+                                subtitle: 'Badges and milestones',
+                                onTap: () => _showComingSoon('Achievements'),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.leaderboard_outlined,
+                                title: 'View Personal Records',
+                                subtitle: 'Best lifts and workout records',
+                                onTap: () =>
+                                    _showComingSoon('Personal records'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 58,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _signOut(context),
-                          icon: const Icon(Icons.logout_rounded),
-                          label: const Text(
-                            'Log Out',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: primaryBlue,
-                            side: const BorderSide(
-                              color: Color(0xFFC8D9F6),
-                              width: 1.5,
-                            ),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                    );
+                  },
+                );
+              },
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _topBar(UserProfile profile) {
+    final fitzaColors = _colors(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Profile',
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 25,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
+        InkWell(
+          onTap: () => _openSettings(profile),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 46,
+            width: 46,
+            decoration: BoxDecoration(
+              color: fitzaColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: fitzaColors.border,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _isDark(context)
+                      ? const Color(0x33000000)
+                      : const Color(0x0F000000),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.settings_outlined,
+              color: fitzaColors.primaryText,
+              size: 25,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _profileHeroCard(UserProfile profile) {
+    final fitzaColors = _colors(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: fitzaColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: fitzaColors.border,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _isDark(context)
+                ? const Color(0x33000000)
+                : const Color(0x0F000000),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              Container(
+                height: 72,
+                width: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _softBackground(context, fitzaColors.primaryBlue),
+                  border: Border.all(
+                    color: fitzaColors.primaryBlue,
+                    width: 2.4,
+                  ),
+                ),
+                child: Icon(
+                  Icons.person_rounded,
+                  color: fitzaColors.primaryBlue,
+                  size: 44,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: InkWell(
+                  onTap: () => _showComingSoon('Profile photo update'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 28,
+                    width: 28,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accentBlue,
+                    ),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  profile.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fitzaColors.secondaryText,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 34,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showEditProfileSheet(profile),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 17,
+                    ),
+                    label: const Text('Edit Profile'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: fitzaColors.primaryBlue,
+                      side: BorderSide(
+                        color: fitzaColors.primaryBlue.withValues(alpha: 0.45),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    final fitzaColors = _colors(context);
+
+    return Text(
+      title,
+      style: TextStyle(
+        color: fitzaColors.primaryText,
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.2,
+      ),
+    );
+  }
+
+  Widget _detailsGrid({
+    required List<_ProfileInfoItem> items,
+  }) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _detailCard(items[0])),
+            const SizedBox(width: 10),
+            Expanded(child: _detailCard(items[1])),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _detailCard(items[2])),
+            const SizedBox(width: 10),
+            Expanded(child: _detailCard(items[3])),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _detailCard(items[4])),
+            const SizedBox(width: 10),
+            Expanded(child: _detailCard(items[5])),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryGrid({
+    required List<_ProfileInfoItem> items,
+  }) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _summaryCard(items[0])),
+            const SizedBox(width: 10),
+            Expanded(child: _summaryCard(items[1])),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _summaryCard(items[2])),
+            const SizedBox(width: 10),
+            Expanded(child: _summaryCard(items[3])),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _detailCard(_ProfileInfoItem item) {
+    final fitzaColors = _colors(context);
+
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.all(12),
+      decoration: _cardDecoration(),
+      child: Row(
+        children: [
+          _smallIconBox(item.icon, item.color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _infoText(
+              value: item.value,
+              label: item.label,
+              fitzaColors: fitzaColors,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryCard(_ProfileInfoItem item) {
+    final fitzaColors = _colors(context);
+
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.all(12),
+      decoration: _cardDecoration(),
+      child: Row(
+        children: [
+          _smallIconBox(item.icon, item.color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _infoText(
+              value: item.value,
+              label: item.label,
+              fitzaColors: fitzaColors,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _smallIconBox(IconData icon, Color color) {
+    return Container(
+      height: 38,
+      width: 38,
+      decoration: BoxDecoration(
+        color: _softBackground(context, color),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        icon,
+        color: color,
+        size: 21,
+      ),
+    );
+  }
+
+  Widget _infoText({
+    required String value,
+    required String label,
+    required FitzaThemeColors fitzaColors,
+  }) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: fitzaColors.primaryText,
+            fontSize: 15.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: fitzaColors.secondaryText,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    final fitzaColors = _colors(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(15, 15, 15, 8),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              color: fitzaColors.primaryBlue,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _navigationRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final fitzaColors = _colors(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10.5),
+        child: Row(
+          children: [
+            _smallIconBox(icon, fitzaColors.primaryBlue),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: fitzaColors.secondaryText,
+              size: 25,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _divider() {
+    final fitzaColors = _colors(context);
+
+    return Divider(
+      height: 1,
+      color: fitzaColors.border,
     );
   }
 
@@ -681,6 +1151,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required Color iconColor,
     bool isLoading = false,
   }) {
+    final fitzaColors = _colors(context);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -688,7 +1160,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isLoading)
-              const CircularProgressIndicator()
+              CircularProgressIndicator(
+                color: fitzaColors.primaryBlue,
+              )
             else
               Icon(
                 icon,
@@ -699,8 +1173,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: darkText,
+              style: TextStyle(
+                color: fitzaColors.primaryText,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -711,396 +1185,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showComingSoon(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$title will be added later.'),
-      ),
-    );
-  }
-
-  Widget _topBar() {
-    return FitzaHeader(
-      centerTitle: 'Profile',
-      trailing: FitzaHeaderIconButton(
-        icon: Icons.settings_outlined,
-        onTap: () => _showComingSoon('Profile settings'),
-      ),
-    );
-  }
-
-  Widget _profileHeroCard(UserProfile profile) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Colors.white,
-            Color(0xFFEAF3FF),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: const Color(0xFFC8D9F6),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Stack(
-            children: [
-              Container(
-                height: 92,
-                width: 92,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFEAF3FF),
-                  border: Border.all(
-                    color: primaryBlue,
-                    width: 3,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: primaryBlue,
-                  size: 58,
-                ),
-              ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: InkWell(
-                  onTap: () => _showComingSoon('Profile photo update'),
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    height: 34,
-                    width: 34,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: accentBlue,
-                    ),
-                    child: const Icon(
-                      Icons.edit_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: darkText,
-                    fontSize: 29,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  profile.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: greyText,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF3FF),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.star_rounded,
-                        color: primaryBlue,
-                        size: 20,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Active Member',
-                        style: TextStyle(
-                          color: primaryBlue,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _profileStatsGrid(
-    UserProfile profile,
-    WeightEntry? latestEntry,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _smallStatCard(
-                icon: Icons.calendar_today_outlined,
-                value: _formatAge(profile),
-                label: 'Age',
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _smallStatCard(
-                icon: Icons.height_rounded,
-                value: _formatHeight(profile, latestEntry),
-                label: 'Height',
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _smallStatCard(
-                icon: Icons.monitor_weight_outlined,
-                value: _formatWeight(latestEntry),
-                label: 'Weight',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _smallStatCard(
-                icon: Icons.track_changes_rounded,
-                value: profile.goal,
-                label: 'Goal',
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _smallStatCard(
-                icon: Icons.bar_chart_rounded,
-                value: profile.activityLevel,
-                label: 'Activity',
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _smallStatCard(
-                icon: Icons.location_on_outlined,
-                value: profile.location,
-                label: 'Location',
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _smallStatCard({
-    required IconData icon,
-    required String value,
+  InputDecoration _inputDecoration(
+    BuildContext context, {
     required String label,
-  }) {
-    return Container(
-      height: 88,
-      padding: const EdgeInsets.all(10),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: primaryBlue,
-            size: 27,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: darkText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: greyText,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCard({
-    required String title,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: primaryBlue,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _switchRow({
     required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: primaryBlue,
-            size: 27,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: darkText,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            activeColor: Colors.white,
-            activeTrackColor: primaryBlue,
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: const Color(0xFFD1D5DB),
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
+    final fitzaColors = _colors(context);
 
-  Widget _navigationRow({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: primaryBlue,
-              size: 27,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: darkText,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: greyText,
-              size: 28,
-            ),
-          ],
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: fitzaColors.secondaryText,
+        fontWeight: FontWeight.w600,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: fitzaColors.primaryBlue,
+      ),
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
         ),
       ),
-    );
-  }
-
-  Widget _divider() {
-    return const Divider(
-      height: 1,
-      color: Color(0xFFE5EAF2),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.primaryBlue,
+          width: 1.7,
+        ),
+      ),
     );
   }
 
   BoxDecoration _cardDecoration() {
+    final fitzaColors = _colors(context);
+
     return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
+      color: fitzaColors.surface,
+      borderRadius: BorderRadius.circular(18),
       border: Border.all(
-        color: const Color(0xFFE1E7F0),
+        color: fitzaColors.border,
       ),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
-          color: Color(0x10000000),
-          blurRadius: 14,
-          offset: Offset(0, 5),
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
       ],
     );
   }
+}
+
+class _ProfileInfoItem {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _ProfileInfoItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
 }

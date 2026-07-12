@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../models/progress/weight_entry.dart';
 import '../../../services/progress/weight_firestore_service.dart';
 
@@ -28,10 +29,6 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
 
   bool _hasInitialisedWeight = false;
   bool _isSaving = false;
-
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
 
   @override
   void initState() {
@@ -111,7 +108,7 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
 
     final minTenths = _minWeight * 10;
     final maxTenths = _maxWeight * 10;
-    final clampedTenths = newTenths.clamp(minTenths, maxTenths);
+    final clampedTenths = newTenths.clamp(minTenths, maxTenths).toInt();
 
     if (_selectedWeightTenths == clampedTenths) {
       return;
@@ -134,7 +131,7 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
 
     _weightTenthsNotifier.value = clampedTenths;
   }
-  
+
   Future<void> _pickDateTime() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -292,10 +289,78 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
     return '$dateText · $displayHour:$minute $period';
   }
 
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return BoxDecoration(
+      color: fitzaColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [
+        BoxShadow(
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _notesInputDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return InputDecoration(
+      hintText: 'Add any notes...',
+      hintStyle: TextStyle(
+        color: fitzaColors.secondaryText,
+        fontSize: 14.5,
+        fontWeight: FontWeight.w500,
+      ),
+      counterStyle: TextStyle(
+        color: fitzaColors.secondaryText,
+        fontSize: 11,
+      ),
+      alignLabelWithHint: true,
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: fitzaColors.primaryBlue,
+          width: 1.7,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: StreamBuilder<List<WeightEntry>>(
           stream: WeightFirestoreService.instance.getWeightEntriesStream(),
@@ -314,19 +379,21 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                         Row(
                           children: [
                             IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(
+                              onPressed: _isSaving
+                                  ? null
+                                  : () => Navigator.pop(context),
+                              icon: Icon(
                                 Icons.arrow_back_rounded,
-                                color: darkText,
+                                color: fitzaColors.primaryText,
                                 size: 29,
                               ),
                             ),
-                            const Expanded(
+                            Expanded(
                               child: Text(
                                 'Add Weight',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: darkText,
+                                  color: fitzaColors.primaryText,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.3,
@@ -341,24 +408,15 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
 
                         Container(
                           padding: const EdgeInsets.all(17),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0F000000),
-                                blurRadius: 10,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
+                          decoration: _cardDecoration(context),
                           child: Column(
                             children: [
                               _formRow(
+                                context,
                                 icon: Icons.schedule_rounded,
                                 title: 'Date & time',
                                 child: InkWell(
-                                  onTap: _pickDateTime,
+                                  onTap: _isSaving ? null : _pickDateTime,
                                   borderRadius: BorderRadius.circular(12),
                                   child: Padding(
                                     padding:
@@ -370,17 +428,17 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                                             _formattedDateTime(),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: darkText,
+                                            style: TextStyle(
+                                              color: fitzaColors.primaryText,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w800,
                                               letterSpacing: -0.2,
                                             ),
                                           ),
                                         ),
-                                        const Icon(
+                                        Icon(
                                           Icons.edit_calendar_outlined,
-                                          color: primaryBlue,
+                                          color: fitzaColors.primaryBlue,
                                           size: 23,
                                         ),
                                       ],
@@ -389,17 +447,25 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                                 ),
                               ),
 
-                              const Divider(height: 26),
+                              Divider(
+                                height: 26,
+                                color: fitzaColors.border,
+                              ),
 
                               _formRow(
+                                context,
                                 icon: Icons.monitor_weight_outlined,
                                 title: 'Weight',
                                 child: _inlineWeightPicker(),
                               ),
 
-                              const Divider(height: 26),
+                              Divider(
+                                height: 26,
+                                color: fitzaColors.border,
+                              ),
 
                               _formRow(
+                                context,
                                 icon: Icons.edit_note_outlined,
                                 title: 'Notes (optional)',
                                 child: TextField(
@@ -408,44 +474,12 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                                   maxLines: 7,
                                   maxLength: 200,
                                   keyboardType: TextInputType.multiline,
-                                  style: const TextStyle(
-                                    color: darkText,
+                                  style: TextStyle(
+                                    color: fitzaColors.primaryText,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Add any notes...',
-                                    hintStyle: const TextStyle(
-                                      color: Color(0xFF667085),
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    counterStyle: const TextStyle(
-                                      color: Color(0xFF667085),
-                                      fontSize: 11,
-                                    ),
-                                    alignLabelWithHint: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFB7C1D3),
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: primaryBlue,
-                                        width: 1.7,
-                                      ),
-                                    ),
-                                  ),
+                                  decoration: _notesInputDecoration(context),
                                 ),
                               ),
                             ],
@@ -464,25 +498,31 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
                     child: ElevatedButton(
                       onPressed: _isSaving ? null : _continue,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryBlue,
-                        foregroundColor: Colors.white,
+                        backgroundColor: fitzaColors.primaryBlue,
+                        foregroundColor: fitzaColors.textOnBlue,
+                        disabledBackgroundColor:
+                            _isDark(context)
+                                ? const Color(0xFF375C9F)
+                                : const Color(0xFF9BB7EA),
+                        disabledForegroundColor: fitzaColors.textOnBlue,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        elevation: 2,
+                        elevation: _isDark(context) ? 0 : 2,
                       ),
                       child: _isSaving
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
+                                color: fitzaColors.textOnBlue,
                                 strokeWidth: 2.4,
                               ),
                             )
-                          : const Text(
+                          : Text(
                               'Save Weight',
                               style: TextStyle(
+                                color: fitzaColors.textOnBlue,
                                 fontSize: 17.5,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -499,158 +539,173 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
   }
 
   Widget _inlineWeightPicker() {
-    return ValueListenableBuilder<int>(
-      valueListenable: _weightTenthsNotifier,
-      builder: (context, selectedTenths, _) {
-        final selectedWhole = selectedTenths ~/ 10;
-        final selectedDecimal = selectedTenths % 10;
+    return Builder(
+      builder: (context) {
+        final fitzaColors = _colors(context);
 
-        return Container(
-          height: 166,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FBFE),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFE1E7F0),
-            ),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                height: 46,
-                margin: const EdgeInsets.symmetric(horizontal: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF3FF),
-                  borderRadius: BorderRadius.circular(14),
+        return ValueListenableBuilder<int>(
+          valueListenable: _weightTenthsNotifier,
+          builder: (context, selectedTenths, _) {
+            final selectedWhole = selectedTenths ~/ 10;
+            final selectedDecimal = selectedTenths % 10;
+
+            return Container(
+              height: 166,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: fitzaColors.inputSurface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: fitzaColors.border,
                 ),
               ),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  SizedBox(
-                    width: 76,
-                    child: ListWheelScrollView.useDelegate(
-                      controller: _wholeWeightController,
-                      itemExtent: 46,
-                      perspective: 0.003,
-                      diameterRatio: 1.6,
-                      physics: const FixedExtentScrollPhysics(),
-                      onSelectedItemChanged: (index) {
-                        final newWhole = _minWeight + index;
-                        final newTenths =
-                            (newWhole * 10) + _selectedDecimalWeight;
-
-                        _updateWeightTenths(
-                          newTenths,
-                          syncWholeWheel: false,
-                        );
-                      },
-                      childDelegate: ListWheelChildBuilderDelegate(
-                        childCount: _maxWeight - _minWeight + 1,
-                        builder: (context, index) {
-                          final value = _minWeight + index;
-                          final isSelected = value == selectedWhole;
-
-                          return Center(
-                            child: Text(
-                              value.toString(),
-                              style: TextStyle(
-                                color: isSelected
-                                    ? darkText
-                                    : greyText.withValues(alpha: 0.38),
-                                fontSize: isSelected ? 25 : 18,
-                                fontWeight: isSelected
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        },
+                  Container(
+                    height: 46,
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: fitzaColors.primaryBlue.withValues(
+                        alpha: _isDark(context) ? 0.20 : 0.10,
                       ),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
 
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 7),
-                    child: Text(
-                      '.',
-                      style: TextStyle(
-                        color: darkText,
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 76,
+                        child: ListWheelScrollView.useDelegate(
+                          controller: _wholeWeightController,
+                          itemExtent: 46,
+                          perspective: 0.003,
+                          diameterRatio: 1.6,
+                          physics: const FixedExtentScrollPhysics(),
+                          onSelectedItemChanged: (index) {
+                            final newWhole = _minWeight + index;
+                            final newTenths =
+                                (newWhole * 10) + _selectedDecimalWeight;
+
+                            _updateWeightTenths(
+                              newTenths,
+                              syncWholeWheel: false,
+                            );
+                          },
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            childCount: _maxWeight - _minWeight + 1,
+                            builder: (context, index) {
+                              final value = _minWeight + index;
+                              final isSelected = value == selectedWhole;
+
+                              return Center(
+                                child: Text(
+                                  value.toString(),
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? fitzaColors.primaryText
+                                        : fitzaColors.secondaryText.withValues(
+                                            alpha: 0.42,
+                                          ),
+                                    fontSize: isSelected ? 25 : 18,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
 
-                  SizedBox(
-                    width: 52,
-                    child: ListWheelScrollView.useDelegate(
-                      controller: _decimalWeightController,
-                      itemExtent: 46,
-                      perspective: 0.003,
-                      diameterRatio: 1.6,
-                      physics: const FixedExtentScrollPhysics(),
-                      onSelectedItemChanged: (index) {
-                        final change = index - _lastDecimalIndex;
-                        _lastDecimalIndex = index;
-
-                        if (change == 0) {
-                          return;
-                        }
-
-                        _updateWeightTenths(_selectedWeightTenths + change);
-                      },
-                      childDelegate: ListWheelChildBuilderDelegate(
-                        builder: (context, index) {
-                          final value = index % 10;
-                          final isSelected = value == selectedDecimal;
-
-                          return Center(
-                            child: Text(
-                              value.toString(),
-                              style: TextStyle(
-                                color: isSelected
-                                    ? darkText
-                                    : greyText.withValues(alpha: 0.38),
-                                fontSize: isSelected ? 25 : 18,
-                                fontWeight: isSelected
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        },
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 7),
+                        child: Text(
+                          '.',
+                          style: TextStyle(
+                            color: fitzaColors.primaryText,
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
 
-                  const SizedBox(width: 10),
+                      SizedBox(
+                        width: 52,
+                        child: ListWheelScrollView.useDelegate(
+                          controller: _decimalWeightController,
+                          itemExtent: 46,
+                          perspective: 0.003,
+                          diameterRatio: 1.6,
+                          physics: const FixedExtentScrollPhysics(),
+                          onSelectedItemChanged: (index) {
+                            final change = index - _lastDecimalIndex;
+                            _lastDecimalIndex = index;
 
-                  const Text(
-                    'kg',
-                    style: TextStyle(
-                      color: greyText,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                            if (change == 0) {
+                              return;
+                            }
+
+                            _updateWeightTenths(_selectedWeightTenths + change);
+                          },
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            builder: (context, index) {
+                              final value = index % 10;
+                              final isSelected = value == selectedDecimal;
+
+                              return Center(
+                                child: Text(
+                                  value.toString(),
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? fitzaColors.primaryText
+                                        : fitzaColors.secondaryText.withValues(
+                                            alpha: 0.42,
+                                          ),
+                                    fontSize: isSelected ? 25 : 18,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      Text(
+                        'kg',
+                        style: TextStyle(
+                          color: fitzaColors.secondaryText,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _formRow({
+  Widget _formRow(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required Widget child,
   }) {
+    final fitzaColors = _colors(context);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -658,12 +713,14 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
           height: 46,
           width: 46,
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF3FF),
+            color: fitzaColors.primaryBlue.withValues(
+              alpha: _isDark(context) ? 0.20 : 0.10,
+            ),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(
             icon,
-            color: primaryBlue,
+            color: fitzaColors.primaryBlue,
             size: 24,
           ),
         ),
@@ -674,8 +731,8 @@ class _AddWeightScreenState extends State<AddWeightScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: greyText,
+                style: TextStyle(
+                  color: fitzaColors.secondaryText,
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
                 ),
