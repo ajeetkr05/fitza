@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../main.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
@@ -44,13 +45,16 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _placeholderScreen(String title) {
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0B1B4D),
+        backgroundColor: fitzaColors.background,
+        foregroundColor: fitzaColors.primaryText,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: _selectedIndex,
@@ -59,10 +63,10 @@ class _AppShellState extends State<AppShell> {
       body: Center(
         child: Text(
           '$title screen will be added soon',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1555C0),
+            color: fitzaColors.primaryBlue,
           ),
         ),
       ),
