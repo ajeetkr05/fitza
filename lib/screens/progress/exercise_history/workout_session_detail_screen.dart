@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../models/progress/workout_entry.dart';
 import 'exercise_detail_screen.dart';
 
@@ -12,8 +13,6 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
   });
 
   static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
   static const Color successGreen = Color(0xFF2E7D32);
 
   Color get _iconColor {
@@ -40,6 +39,18 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
       default:
         return Icons.fitness_center_outlined;
     }
+  }
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.10);
   }
 
   String _formatDate(DateTime date) {
@@ -69,6 +80,18 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     return double.tryParse(value?.toString() ?? '');
   }
 
+  num? _firstNumber(Map<String, dynamic> exercise, List<String> keys) {
+    for (final key in keys) {
+      final value = _numberValue(exercise[key]);
+
+      if (value != null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
   String _formatNumber(num value) {
     if (value % 1 == 0) {
       return value.toInt().toString();
@@ -86,9 +109,9 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     if (workout.workoutType == 'Gym') {
       final parts = <String>[];
 
-      final weight = _numberValue(exercise['weightKg']);
-      final reps = _numberValue(exercise['reps']);
-      final sets = _numberValue(exercise['sets']);
+      final sets = _firstNumber(exercise, ['sets']);
+      final reps = _firstNumber(exercise, ['reps']);
+      final weight = _firstNumber(exercise, ['weightKg', 'weight']);
 
       if (sets != null) {
         parts.add('${_formatNumber(sets)} sets');
@@ -108,10 +131,13 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     if (workout.workoutType == 'Cardio') {
       final parts = <String>[];
 
-      final duration = _numberValue(exercise['durationMinutes']);
-      final distance = _numberValue(exercise['distanceKm']);
-      final steps = _numberValue(exercise['steps']);
-      final calories = _numberValue(exercise['caloriesBurned']);
+      final duration = _firstNumber(exercise, ['durationMinutes', 'reps']);
+      final distance = _firstNumber(exercise, ['distanceKm', 'distance']);
+      final steps = _firstNumber(exercise, ['steps']);
+      final calories = _firstNumber(
+        exercise,
+        ['caloriesBurned', 'calories'],
+      );
 
       if (duration != null) {
         parts.add('${_formatNumber(duration)} min');
@@ -129,13 +155,15 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
         parts.add('${_formatNumber(calories)} kcal');
       }
 
-      return parts.isEmpty ? '${workout.durationMinutes} min' : parts.join(' • ');
+      return parts.isEmpty
+          ? '${workout.durationMinutes} min'
+          : parts.join(' • ');
     }
 
     final parts = <String>[];
 
-    final duration = _numberValue(exercise['durationMinutes']);
-    final sets = _numberValue(exercise['sets']);
+    final duration = _firstNumber(exercise, ['durationMinutes', 'reps']);
+    final sets = _firstNumber(exercise, ['sets']);
     final difficulty = exercise['difficulty']?.toString().trim() ?? '';
 
     if (duration != null) {
@@ -174,10 +202,11 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
     final exerciseCount = workout.exercises.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
@@ -188,9 +217,9 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_rounded,
-                      color: darkText,
+                      color: fitzaColors.primaryText,
                       size: 29,
                     ),
                   ),
@@ -200,8 +229,8 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: darkText,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -214,14 +243,14 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
 
               const SizedBox(height: 18),
 
-              _summaryCard(exerciseCount),
+              _summaryCard(context, exerciseCount),
 
               const SizedBox(height: 16),
 
-              const Text(
+              Text(
                 'Exercises',
                 style: TextStyle(
-                  color: darkText,
+                  color: fitzaColors.primaryText,
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.2,
@@ -231,7 +260,7 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
               const SizedBox(height: 10),
 
               if (workout.exercises.isEmpty)
-                _emptyCard()
+                _emptyCard(context)
               else
                 ...List.generate(
                   workout.exercises.length,
@@ -249,7 +278,7 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
 
               if (workout.notes.trim().isNotEmpty) ...[
                 const SizedBox(height: 16),
-                _notesCard(),
+                _notesCard(context),
               ],
             ],
           ),
@@ -258,16 +287,18 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _summaryCard(int exerciseCount) {
+  Widget _summaryCard(BuildContext context, int exerciseCount) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Row(
         children: [
           CircleAvatar(
             radius: 27,
-            backgroundColor: _iconColor.withValues(alpha: 0.10),
+            backgroundColor: _softBackground(context, _iconColor),
             child: Icon(
               _icon,
               color: _iconColor,
@@ -283,8 +314,8 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                   workout.workoutName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: darkText,
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
@@ -295,8 +326,8 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                   '${workout.workoutType} • $exerciseCount ${exerciseCount == 1 ? 'exercise' : 'exercises'} • ${_formatDate(workout.recordedAt)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: greyText,
+                  style: TextStyle(
+                    color: fitzaColors.secondaryText,
                     fontSize: 12.5,
                     height: 1.3,
                     fontWeight: FontWeight.w500,
@@ -314,8 +345,10 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> exercise,
   ) {
+    final fitzaColors = _colors(context);
+
     return Material(
-      color: const Color(0xFFF9FBFE),
+      color: fitzaColors.inputSurface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -324,13 +357,15 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE1E7F0)),
+            border: Border.all(
+              color: fitzaColors.border,
+            ),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 21,
-                backgroundColor: _iconColor.withValues(alpha: 0.10),
+                backgroundColor: _softBackground(context, _iconColor),
                 child: Icon(
                   _icon,
                   color: _iconColor,
@@ -346,8 +381,8 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                       _exerciseName(exercise),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: darkText,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
@@ -358,8 +393,8 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                       _exerciseDetails(exercise),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: greyText,
+                      style: TextStyle(
+                        color: fitzaColors.secondaryText,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                       ),
@@ -367,9 +402,9 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFF98A2B3),
+                color: fitzaColors.secondaryText,
                 size: 22,
               ),
             ],
@@ -379,18 +414,20 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _notesCard() {
+  Widget _notesCard(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Notes',
             style: TextStyle(
-              color: darkText,
+              color: fitzaColors.primaryText,
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
@@ -398,8 +435,8 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             workout.notes,
-            style: const TextStyle(
-              color: greyText,
+            style: TextStyle(
+              color: fitzaColors.secondaryText,
               fontSize: 13.5,
               height: 1.4,
               fontWeight: FontWeight.w500,
@@ -410,16 +447,18 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _emptyCard() {
+  Widget _emptyCard(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
-      child: const Text(
+      decoration: _cardDecoration(context),
+      child: Text(
         'No exercises saved in this workout.',
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: greyText,
+          color: fitzaColors.secondaryText,
           fontSize: 13.5,
           fontWeight: FontWeight.w600,
         ),
@@ -427,15 +466,19 @@ class WorkoutSessionDetailScreen extends StatelessWidget {
     );
   }
 
-  BoxDecoration _cardDecoration() {
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return BoxDecoration(
-      color: Colors.white,
+      color: fitzaColors.surface,
       borderRadius: BorderRadius.circular(18),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
-          color: Color(0x0F000000),
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
           blurRadius: 10,
-          offset: Offset(0, 4),
+          offset: const Offset(0, 4),
         ),
       ],
     );

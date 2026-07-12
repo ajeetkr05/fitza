@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../models/progress/workout_entry.dart';
 import '../../../services/progress/workout_firestore_service.dart';
 import '../log_workout/cardio_workout_screen.dart';
@@ -19,11 +20,21 @@ class ExerciseDetailScreen extends StatelessWidget {
   });
 
   static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
   static const Color successGreen = Color(0xFF2E7D32);
 
   bool get _isGym => workoutType == 'Gym';
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.10);
+  }
 
   String get _progressTitle {
     if (_isGym) {
@@ -89,6 +100,18 @@ class ExerciseDetailScreen extends StatelessWidget {
     return double.tryParse(value?.toString() ?? '');
   }
 
+  num? _firstNumber(Map<String, dynamic> exercise, List<String> keys) {
+    for (final key in keys) {
+      final value = _numberValue(exercise[key]);
+
+      if (value != null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
   String _formatNumber(num value) {
     if (value % 1 == 0) {
       return value.toInt().toString();
@@ -99,18 +122,33 @@ class ExerciseDetailScreen extends StatelessWidget {
 
   double _metricValue(_ExerciseOccurrence occurrence) {
     if (_isGym) {
-      return _numberValue(occurrence.exercise['weightKg'])?.toDouble() ??
-          _numberValue(occurrence.exercise['reps'])?.toDouble() ??
+      return _firstNumber(
+            occurrence.exercise,
+            ['weightKg', 'weight'],
+          )?.toDouble() ??
+          _firstNumber(
+            occurrence.exercise,
+            ['reps'],
+          )?.toDouble() ??
           0;
     }
 
     if (workoutType == 'Cardio') {
-      return _numberValue(occurrence.exercise['distanceKm'])?.toDouble() ??
-          _numberValue(occurrence.exercise['durationMinutes'])?.toDouble() ??
+      return _firstNumber(
+            occurrence.exercise,
+            ['distanceKm', 'distance'],
+          )?.toDouble() ??
+          _firstNumber(
+            occurrence.exercise,
+            ['durationMinutes', 'reps'],
+          )?.toDouble() ??
           occurrence.workout.durationMinutes.toDouble();
     }
 
-    return _numberValue(occurrence.exercise['durationMinutes'])?.toDouble() ??
+    return _firstNumber(
+          occurrence.exercise,
+          ['durationMinutes', 'reps'],
+        )?.toDouble() ??
         occurrence.workout.durationMinutes.toDouble();
   }
 
@@ -122,7 +160,11 @@ class ExerciseDetailScreen extends StatelessWidget {
     if (workoutType == 'Cardio') {
       final hasDistance = occurrences.any(
         (occurrence) =>
-            _numberValue(occurrence.exercise['distanceKm']) != null,
+            _firstNumber(
+              occurrence.exercise,
+              ['distanceKm', 'distance'],
+            ) !=
+            null,
       );
 
       return hasDistance ? 'km' : 'min';
@@ -147,8 +189,14 @@ class ExerciseDetailScreen extends StatelessWidget {
 
   String _metricDisplay(_ExerciseOccurrence occurrence) {
     if (_isGym) {
-      final weight = _numberValue(occurrence.exercise['weightKg']);
-      final reps = _numberValue(occurrence.exercise['reps']);
+      final weight = _firstNumber(
+        occurrence.exercise,
+        ['weightKg', 'weight'],
+      );
+      final reps = _firstNumber(
+        occurrence.exercise,
+        ['reps'],
+      );
 
       if (weight != null && reps != null) {
         return '${_formatNumber(weight)} kg × ${_formatNumber(reps)}';
@@ -164,20 +212,29 @@ class ExerciseDetailScreen extends StatelessWidget {
     }
 
     if (workoutType == 'Cardio') {
-      final distance = _numberValue(occurrence.exercise['distanceKm']);
+      final distance = _firstNumber(
+        occurrence.exercise,
+        ['distanceKm', 'distance'],
+      );
 
       if (distance != null) {
         return '${_formatNumber(distance)} km';
       }
 
-      final duration = _numberValue(occurrence.exercise['durationMinutes']);
+      final duration = _firstNumber(
+        occurrence.exercise,
+        ['durationMinutes', 'reps'],
+      );
 
       if (duration != null) {
         return '${_formatNumber(duration)} min';
       }
     }
 
-    final duration = _numberValue(occurrence.exercise['durationMinutes']);
+    final duration = _firstNumber(
+      occurrence.exercise,
+      ['durationMinutes', 'reps'],
+    );
 
     if (duration != null) {
       return '${_formatNumber(duration)} min';
@@ -190,9 +247,18 @@ class ExerciseDetailScreen extends StatelessWidget {
     if (_isGym) {
       final parts = <String>[];
 
-      final weight = _numberValue(occurrence.exercise['weightKg']);
-      final reps = _numberValue(occurrence.exercise['reps']);
-      final sets = _numberValue(occurrence.exercise['sets']);
+      final weight = _firstNumber(
+        occurrence.exercise,
+        ['weightKg', 'weight'],
+      );
+      final reps = _firstNumber(
+        occurrence.exercise,
+        ['reps'],
+      );
+      final sets = _firstNumber(
+        occurrence.exercise,
+        ['sets'],
+      );
 
       if (weight != null) {
         parts.add('${_formatNumber(weight)} kg');
@@ -212,10 +278,22 @@ class ExerciseDetailScreen extends StatelessWidget {
     if (workoutType == 'Cardio') {
       final parts = <String>[];
 
-      final distance = _numberValue(occurrence.exercise['distanceKm']);
-      final duration = _numberValue(occurrence.exercise['durationMinutes']);
-      final steps = _numberValue(occurrence.exercise['steps']);
-      final calories = _numberValue(occurrence.exercise['caloriesBurned']);
+      final distance = _firstNumber(
+        occurrence.exercise,
+        ['distanceKm', 'distance'],
+      );
+      final duration = _firstNumber(
+        occurrence.exercise,
+        ['durationMinutes', 'reps'],
+      );
+      final steps = _firstNumber(
+        occurrence.exercise,
+        ['steps'],
+      );
+      final calories = _firstNumber(
+        occurrence.exercise,
+        ['caloriesBurned', 'calories'],
+      );
 
       if (distance != null) {
         parts.add('${_formatNumber(distance)} km');
@@ -240,8 +318,14 @@ class ExerciseDetailScreen extends StatelessWidget {
 
     final parts = <String>[];
 
-    final duration = _numberValue(occurrence.exercise['durationMinutes']);
-    final sets = _numberValue(occurrence.exercise['sets']);
+    final duration = _firstNumber(
+      occurrence.exercise,
+      ['durationMinutes', 'reps'],
+    );
+    final sets = _firstNumber(
+      occurrence.exercise,
+      ['sets'],
+    );
     final difficulty = occurrence.exercise['difficulty']?.toString() ?? '';
 
     parts.add(
@@ -354,8 +438,10 @@ class ExerciseDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: StreamBuilder<List<WorkoutEntry>>(
           stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
@@ -364,6 +450,7 @@ class ExerciseDetailScreen extends StatelessWidget {
               return _screenLayout(
                 context,
                 _statusCard(
+                  context,
                   icon: Icons.error_outline_rounded,
                   message: 'Could not load this exercise history.',
                   iconColor: Colors.red,
@@ -375,9 +462,10 @@ class ExerciseDetailScreen extends StatelessWidget {
               return _screenLayout(
                 context,
                 _statusCard(
+                  context,
                   icon: Icons.hourglass_top_rounded,
                   message: 'Loading exercise details...',
-                  iconColor: primaryBlue,
+                  iconColor: fitzaColors.primaryBlue,
                   isLoading: true,
                 ),
               );
@@ -403,6 +491,8 @@ class ExerciseDetailScreen extends StatelessWidget {
   }
 
   Widget _screenLayout(BuildContext context, Widget content) {
+    final fitzaColors = _colors(context);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       child: Column(
@@ -412,9 +502,9 @@ class ExerciseDetailScreen extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: primaryBlue,
+                  color: fitzaColors.primaryText,
                   size: 31,
                 ),
               ),
@@ -422,8 +512,10 @@ class ExerciseDetailScreen extends StatelessWidget {
                 child: Text(
                   exerciseName,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: darkText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -443,13 +535,12 @@ class ExerciseDetailScreen extends StatelessWidget {
     BuildContext context,
     List<_ExerciseOccurrence> occurrences,
   ) {
+    final fitzaColors = _colors(context);
     final stats = _statItems(occurrences);
 
     final oldestFirst = occurrences.reversed.toList();
 
-    final chartValues = oldestFirst
-        .map(_metricValue)
-        .toList();
+    final chartValues = oldestFirst.map(_metricValue).toList();
 
     final chartLabels = oldestFirst
         .map((occurrence) => _formatDate(occurrence.workout.recordedAt))
@@ -466,7 +557,7 @@ class ExerciseDetailScreen extends StatelessWidget {
 
     if (chartValues.length < 2) {
       changeText = 'First saved entry';
-      changeColor = primaryBlue;
+      changeColor = fitzaColors.primaryBlue;
       changeIcon = Icons.remove_rounded;
     } else if (change > 0) {
       changeText = '↑ ${_formatNumber(change)} $unit';
@@ -478,19 +569,19 @@ class ExerciseDetailScreen extends StatelessWidget {
       changeIcon = Icons.trending_down_rounded;
     } else {
       changeText = 'No change';
-      changeColor = primaryBlue;
+      changeColor = fitzaColors.primaryBlue;
       changeIcon = Icons.remove_rounded;
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statsRow(stats),
+        _statsRow(context, stats),
         const SizedBox(height: 28),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
-          decoration: _cardDecoration(),
+          decoration: _cardDecoration(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -502,8 +593,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                       children: [
                         Text(
                           _progressTitle,
-                          style: const TextStyle(
-                            color: darkText,
+                          style: TextStyle(
+                            color: fitzaColors.primaryText,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
@@ -511,8 +602,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           _progressSubtitle,
-                          style: const TextStyle(
-                            color: greyText,
+                          style: TextStyle(
+                            color: fitzaColors.secondaryText,
                             fontSize: 16,
                           ),
                         ),
@@ -541,10 +632,10 @@ class ExerciseDetailScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'vs first entry',
                         style: TextStyle(
-                          color: greyText,
+                          color: fitzaColors.secondaryText,
                           fontSize: 13,
                         ),
                       ),
@@ -555,8 +646,8 @@ class ExerciseDetailScreen extends StatelessWidget {
               const SizedBox(height: 22),
               Text(
                 _metricLabel(occurrences),
-                style: const TextStyle(
-                  color: darkText,
+                style: TextStyle(
+                  color: fitzaColors.primaryText,
                   fontSize: 15,
                 ),
               ),
@@ -573,10 +664,10 @@ class ExerciseDetailScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 30),
-        const Text(
+        Text(
           'Workout History',
           style: TextStyle(
-            color: darkText,
+            color: fitzaColors.primaryText,
             fontSize: 25,
             fontWeight: FontWeight.bold,
           ),
@@ -584,6 +675,7 @@ class ExerciseDetailScreen extends StatelessWidget {
         const SizedBox(height: 16),
         ...occurrences.map(
           (occurrence) => _historyCard(
+            context,
             date: _formatDate(occurrence.workout.recordedAt),
             details: _historyDetails(occurrence),
           ),
@@ -595,15 +687,17 @@ class ExerciseDetailScreen extends StatelessWidget {
           child: ElevatedButton(
             onPressed: () => _logWorkoutAgain(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
-              foregroundColor: Colors.white,
+              backgroundColor: fitzaColors.primaryBlue,
+              foregroundColor: fitzaColors.textOnBlue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
+              elevation: _isDark(context) ? 0 : 2,
             ),
             child: Text(
               _isGym ? 'Log This Exercise Again' : 'Log This Workout Again',
-              style: const TextStyle(
+              style: TextStyle(
+                color: fitzaColors.textOnBlue,
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
               ),
@@ -615,14 +709,17 @@ class ExerciseDetailScreen extends StatelessWidget {
   }
 
   Widget _emptyExerciseContent(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Column(
       children: [
         _statusCard(
+          context,
           icon: Icons.history_toggle_off_rounded,
           message: latestDetails.isEmpty
               ? 'No saved history exists for this exercise yet.'
               : latestDetails,
-          iconColor: greyText,
+          iconColor: fitzaColors.secondaryText,
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -631,15 +728,17 @@ class ExerciseDetailScreen extends StatelessWidget {
           child: ElevatedButton(
             onPressed: () => _logWorkoutAgain(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
-              foregroundColor: Colors.white,
+              backgroundColor: fitzaColors.primaryBlue,
+              foregroundColor: fitzaColors.textOnBlue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
+              elevation: _isDark(context) ? 0 : 2,
             ),
-            child: const Text(
+            child: Text(
               'Log Workout',
               style: TextStyle(
+                color: fitzaColors.textOnBlue,
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
               ),
@@ -650,23 +749,28 @@ class ExerciseDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _statusCard({
+  Widget _statusCard(
+    BuildContext context, {
     required IconData icon,
     required String message,
     required Color iconColor,
     bool isLoading = false,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(28),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         children: [
           if (isLoading)
-            const SizedBox(
+            SizedBox(
               height: 42,
               width: 42,
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: fitzaColors.primaryBlue,
+              ),
             )
           else
             Icon(
@@ -678,8 +782,8 @@ class ExerciseDetailScreen extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: darkText,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -689,7 +793,7 @@ class ExerciseDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _statsRow(List<_DetailStat> items) {
+  Widget _statsRow(BuildContext context, List<_DetailStat> items) {
     return Row(
       children: List.generate(items.length, (index) {
         return Expanded(
@@ -698,6 +802,7 @@ class ExerciseDetailScreen extends StatelessWidget {
               right: index == items.length - 1 ? 0 : 10,
             ),
             child: _statCard(
+              context,
               icon: items[index].icon,
               label: items[index].label,
               value: items[index].value,
@@ -708,19 +813,26 @@ class ExerciseDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _statCard({
+  Widget _statCard(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
       height: 164,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: primaryBlue, size: 29),
+          Icon(
+            icon,
+            color: fitzaColors.primaryBlue,
+            size: 29,
+          ),
           const SizedBox(height: 10),
           SizedBox(
             height: 36,
@@ -730,8 +842,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: greyText,
+                style: TextStyle(
+                  color: fitzaColors.secondaryText,
                   fontSize: 13,
                   height: 1.15,
                 ),
@@ -746,8 +858,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: darkText,
+                style: TextStyle(
+                  color: fitzaColors.primaryText,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
                   height: 1.15,
@@ -760,28 +872,31 @@ class ExerciseDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _historyCard({
+  Widget _historyCard(
+    BuildContext context, {
     required String date,
     required String details,
   }) {
+    final fitzaColors = _colors(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: _cardDecoration(),
+        decoration: _cardDecoration(context),
         child: Row(
           children: [
             Container(
               height: 52,
               width: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF3FF),
+                color: _softBackground(context, fitzaColors.primaryBlue),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.calendar_month_outlined,
-                color: primaryBlue,
+                color: fitzaColors.primaryBlue,
                 size: 27,
               ),
             ),
@@ -792,8 +907,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                 children: [
                   Text(
                     date,
-                    style: const TextStyle(
-                      color: darkText,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
                       fontSize: 19,
                       fontWeight: FontWeight.bold,
                     ),
@@ -801,8 +916,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     details,
-                    style: const TextStyle(
-                      color: greyText,
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
                       fontSize: 15,
                     ),
                   ),
@@ -815,15 +930,19 @@ class ExerciseDetailScreen extends StatelessWidget {
     );
   }
 
-  BoxDecoration _cardDecoration() {
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return BoxDecoration(
-      color: Colors.white,
+      color: fitzaColors.surface,
       borderRadius: BorderRadius.circular(22),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
-          color: Color(0x12000000),
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x12000000),
           blurRadius: 12,
-          offset: Offset(0, 5),
+          offset: const Offset(0, 5),
         ),
       ],
     );
@@ -866,11 +985,17 @@ class ExerciseProgressChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+
     return CustomPaint(
       painter: _ExerciseChartPainter(
         values: values,
         labels: labels,
         suffix: suffix,
+        lineColor: fitzaColors.primaryBlue,
+        gridColor: fitzaColors.border,
+        textColor: fitzaColors.primaryBlue,
+        pointFillColor: fitzaColors.surface,
       ),
       child: const SizedBox.expand(),
     );
@@ -881,11 +1006,19 @@ class _ExerciseChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> labels;
   final String suffix;
+  final Color lineColor;
+  final Color gridColor;
+  final Color textColor;
+  final Color pointFillColor;
 
   _ExerciseChartPainter({
     required this.values,
     required this.labels,
     required this.suffix,
+    required this.lineColor,
+    required this.gridColor,
+    required this.textColor,
+    required this.pointFillColor,
   });
 
   @override
@@ -895,20 +1028,20 @@ class _ExerciseChartPainter extends CustomPainter {
     }
 
     final gridPaint = Paint()
-      ..color = const Color(0xFFD8E2F1)
+      ..color = gridColor
       ..strokeWidth = 1;
 
     final linePaint = Paint()
-      ..color = const Color(0xFF1555C0)
+      ..color = lineColor
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
 
     final pointPaint = Paint()
-      ..color = Colors.white
+      ..color = pointFillColor
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = const Color(0xFF1555C0)
+      ..color = lineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
@@ -996,7 +1129,7 @@ class _ExerciseChartPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: const Color(0xFF1555C0),
+          color: textColor,
           fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
@@ -1012,6 +1145,12 @@ class _ExerciseChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ExerciseChartPainter oldDelegate) {
-    return true;
+    return oldDelegate.values != values ||
+        oldDelegate.labels != labels ||
+        oldDelegate.suffix != suffix ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.textColor != textColor ||
+        oldDelegate.pointFillColor != pointFillColor;
   }
 }
