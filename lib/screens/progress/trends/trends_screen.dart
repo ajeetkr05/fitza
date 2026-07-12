@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../models/progress/weight_entry.dart';
 import '../../../models/progress/workout_entry.dart';
 import '../../../services/progress/weight_firestore_service.dart';
@@ -21,8 +22,6 @@ class TrendsScreen extends StatefulWidget {
 
 class _TrendsScreenState extends State<TrendsScreen> {
   static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
   static const Color successGreen = Color(0xFF2E7D32);
 
   late String _selectedTrend;
@@ -55,6 +54,18 @@ class _TrendsScreenState extends State<TrendsScreen> {
         : 'Weekly';
 
     _focusedDate = DateTime.now();
+  }
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.10);
   }
 
   bool get _usesWeightEntries {
@@ -385,8 +396,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -396,18 +409,18 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_rounded,
-                      color: darkText,
+                      color: fitzaColors.primaryText,
                       size: 29,
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'View Trends',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: darkText,
+                        color: fitzaColors.primaryText,
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -470,21 +483,21 @@ class _TrendsScreenState extends State<TrendsScreen> {
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? primaryBlue
-                                        : const Color(0xFFF9FBFE),
+                                        ? fitzaColors.primaryBlue
+                                        : fitzaColors.inputSurface,
                                     borderRadius: BorderRadius.circular(13),
                                     border: Border.all(
                                       color: isSelected
-                                          ? primaryBlue
-                                          : const Color(0xFFD4DDEA),
+                                          ? fitzaColors.primaryBlue
+                                          : fitzaColors.border,
                                     ),
                                   ),
                                   child: Text(
                                     range,
                                     style: TextStyle(
                                       color: isSelected
-                                          ? Colors.white
-                                          : darkText,
+                                          ? fitzaColors.textOnBlue
+                                          : fitzaColors.primaryText,
                                       fontSize: 13.5,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -599,9 +612,11 @@ class _TrendsScreenState extends State<TrendsScreen> {
         changeColor: primaryBlue,
         changeIcon: Icons.remove_rounded,
         badgeText: 'No data',
-        badgeTextColor: primaryBlue,
-        badgeBackgroundColor: const Color(0xFFEAF3FF),
-        insight: 'No ${_selectedTrend.toLowerCase()} entries saved this $_periodLabel.',
+        badgeTextColor: _colors(context).primaryBlue,
+        badgeBackgroundColor:
+            _softBackground(context, _colors(context).primaryBlue),
+        insight:
+            'No ${_selectedTrend.toLowerCase()} entries saved this $_periodLabel.',
       );
     }
 
@@ -704,8 +719,9 @@ class _TrendsScreenState extends State<TrendsScreen> {
       changeColor: changeInfo.color,
       changeIcon: changeInfo.icon,
       badgeText: _workoutCountLabel(totalWorkouts),
-      badgeTextColor: primaryBlue,
-      badgeBackgroundColor: const Color(0xFFEAF3FF),
+      badgeTextColor: _colors(context).primaryBlue,
+      badgeBackgroundColor:
+          _softBackground(context, _colors(context).primaryBlue),
       insight: insight,
     );
   }
@@ -788,8 +804,9 @@ class _TrendsScreenState extends State<TrendsScreen> {
       changeColor: changeInfo.color,
       changeIcon: changeInfo.icon,
       badgeText: '${_formatStepCount(totalSteps)} steps',
-      badgeTextColor: primaryBlue,
-      badgeBackgroundColor: const Color(0xFFEAF3FF),
+      badgeTextColor: _colors(context).primaryBlue,
+      badgeBackgroundColor:
+          _softBackground(context, _colors(context).primaryBlue),
       insight: insight,
     );
   }
@@ -809,17 +826,17 @@ class _TrendsScreenState extends State<TrendsScreen> {
         text: '—',
         badge: firstText,
         color: primaryBlue,
-        backgroundColor: const Color(0xFFEAF3FF),
+        backgroundColor: _softBackground(context, primaryBlue),
         icon: Icons.remove_rounded,
       );
     }
 
     if (change == 0) {
-      return const _ChangeInfo(
+      return _ChangeInfo(
         text: 'No change',
         badge: 'No change',
         color: primaryBlue,
-        backgroundColor: Color(0xFFEAF3FF),
+        backgroundColor: _softBackground(context, primaryBlue),
         icon: Icons.remove_rounded,
       );
     }
@@ -829,15 +846,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
     final arrow = isDown ? '↓' : '↑';
     final amount = change.abs().toStringAsFixed(1);
     final color = isGood ? successGreen : Colors.orange;
-    final background = isGood
-        ? const Color(0xFFE8F7EC)
-        : const Color(0xFFFFF4E5);
 
     return _ChangeInfo(
       text: '$arrow $amount$suffix',
       badge: '$arrow $amount$suffix',
       color: color,
-      backgroundColor: background,
+      backgroundColor: _softBackground(context, color),
       icon: isDown ? Icons.trending_down_rounded : Icons.trending_up_rounded,
     );
   }
@@ -848,11 +862,11 @@ class _TrendsScreenState extends State<TrendsScreen> {
     String Function(int value)? formatter,
   }) {
     if (change == 0) {
-      return const _ChangeInfo(
+      return _ChangeInfo(
         text: 'No change',
         badge: 'No change',
         color: primaryBlue,
-        backgroundColor: Color(0xFFEAF3FF),
+        backgroundColor: _softBackground(context, primaryBlue),
         icon: Icons.remove_rounded,
       );
     }
@@ -862,12 +876,13 @@ class _TrendsScreenState extends State<TrendsScreen> {
         ? change.abs().toString()
         : formatter(change.abs());
 
+    final color = isUp ? successGreen : Colors.orange;
+
     return _ChangeInfo(
       text: '${isUp ? '↑' : '↓'} $amount $unit',
       badge: '${isUp ? '↑' : '↓'} $amount $unit',
-      color: isUp ? successGreen : Colors.orange,
-      backgroundColor:
-          isUp ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E5),
+      color: color,
+      backgroundColor: _softBackground(context, color),
       icon: isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
     );
   }
@@ -901,6 +916,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required String message,
     bool isLoading = false,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -910,8 +927,11 @@ class _TrendsScreenState extends State<TrendsScreen> {
         children: [
           _trendCardHeader(
             badgeText: 'No data',
-            badgeTextColor: primaryBlue,
-            badgeBackgroundColor: const Color(0xFFEAF3FF),
+            badgeTextColor: fitzaColors.primaryBlue,
+            badgeBackgroundColor: _softBackground(
+              context,
+              fitzaColors.primaryBlue,
+            ),
           ),
           const SizedBox(height: 12),
           _periodNavigator(),
@@ -920,16 +940,19 @@ class _TrendsScreenState extends State<TrendsScreen> {
             height: 150,
             child: Center(
               child: isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 24,
                       width: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: fitzaColors.primaryBlue,
+                      ),
                     )
                   : Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: greyText,
+                      style: TextStyle(
+                        color: fitzaColors.secondaryText,
                         fontSize: 13.5,
                         height: 1.35,
                         fontWeight: FontWeight.w600,
@@ -955,6 +978,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required Color badgeBackgroundColor,
     required String insight,
   }) {
+    final fitzaColors = _colors(context);
+
     return Column(
       children: [
         Container(
@@ -994,7 +1019,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   Container(
                     width: 1,
                     height: 56,
-                    color: const Color(0xFFE1E7F0),
+                    color: fitzaColors.border,
                   ),
                   Expanded(
                     child: _compactMetric(
@@ -1006,7 +1031,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   Container(
                     width: 1,
                     height: 56,
-                    color: const Color(0xFFE1E7F0),
+                    color: fitzaColors.border,
                   ),
                   Expanded(
                     child: _compactMetric(
@@ -1032,13 +1057,15 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required Color badgeTextColor,
     required Color badgeBackgroundColor,
   }) {
+    final fitzaColors = _colors(context);
+
     return Row(
       children: [
         Expanded(
           child: Text(
             _chartTitle,
-            style: const TextStyle(
-              color: darkText,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
               fontSize: 20,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.2,
@@ -1068,6 +1095,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }
 
   Widget _periodNavigator() {
+    final fitzaColors = _colors(context);
+
     return Row(
       children: [
         _periodArrowButton(
@@ -1083,8 +1112,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: darkText,
+                style: TextStyle(
+                  color: fitzaColors.primaryText,
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.1,
@@ -1093,8 +1122,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
               const SizedBox(height: 2),
               Text(
                 _selectedRange,
-                style: const TextStyle(
-                  color: greyText,
+                style: TextStyle(
+                  color: fitzaColors.secondaryText,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1116,6 +1145,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required VoidCallback onTap,
     required bool isEnabled,
   }) {
+    final fitzaColors = _colors(context);
+
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: isEnabled ? onTap : null,
@@ -1123,7 +1154,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
         padding: const EdgeInsets.all(4),
         child: Icon(
           icon,
-          color: isEnabled ? greyText : const Color(0xFFD0D5DD),
+          color: isEnabled ? fitzaColors.secondaryText : fitzaColors.disabled,
           size: 32,
         ),
       ),
@@ -1134,8 +1165,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required IconData icon,
     required String label,
     required String value,
-    Color valueColor = darkText,
+    Color? valueColor,
   }) {
+    final fitzaColors = _colors(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(
@@ -1143,14 +1176,14 @@ class _TrendsScreenState extends State<TrendsScreen> {
         children: [
           Icon(
             icon,
-            color: primaryBlue,
+            color: fitzaColors.primaryBlue,
             size: 22,
           ),
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: greyText,
+            style: TextStyle(
+              color: fitzaColors.secondaryText,
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
@@ -1161,7 +1194,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: valueColor,
+              color: valueColor ?? fitzaColors.primaryText,
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
@@ -1172,6 +1205,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }
 
   Widget _insightCard(String insight) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1183,12 +1218,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
             height: 44,
             width: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
+              color: _softBackground(context, fitzaColors.primaryBlue),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.emoji_events_outlined,
-              color: primaryBlue,
+              color: fitzaColors.primaryBlue,
               size: 23,
             ),
           ),
@@ -1197,10 +1232,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Nice progress!',
                   style: TextStyle(
-                    color: darkText,
+                    color: fitzaColors.primaryText,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
@@ -1209,8 +1244,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 const SizedBox(height: 5),
                 Text(
                   insight,
-                  style: const TextStyle(
-                    color: darkText,
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
                     fontSize: 13.5,
                     height: 1.35,
                     fontWeight: FontWeight.w500,
@@ -1228,6 +1263,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required String title,
     required Widget child,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -1237,8 +1274,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: darkText,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
               fontSize: 17.5,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.2,
@@ -1255,6 +1292,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required String label,
     required IconData icon,
   }) {
+    final fitzaColors = _colors(context);
     final isSelected = _selectedTrend == label;
 
     return InkWell(
@@ -1269,24 +1307,28 @@ class _TrendsScreenState extends State<TrendsScreen> {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected ? primaryBlue : const Color(0xFFF9FBFE),
+          color: isSelected ? fitzaColors.primaryBlue : fitzaColors.inputSurface,
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: isSelected ? primaryBlue : const Color(0xFFD4DDEA),
+            color: isSelected ? fitzaColors.primaryBlue : fitzaColors.border,
           ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : darkText,
+              color: isSelected
+                  ? fitzaColors.textOnBlue
+                  : fitzaColors.primaryText,
               size: 18,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : darkText,
+                color: isSelected
+                    ? fitzaColors.textOnBlue
+                    : fitzaColors.primaryText,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -1298,14 +1340,18 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }
 
   BoxDecoration _cardDecoration() {
+    final fitzaColors = _colors(context);
+
     return BoxDecoration(
-      color: Colors.white,
+      color: fitzaColors.surface,
       borderRadius: BorderRadius.circular(18),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
-          color: Color(0x0F000000),
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
           blurRadius: 10,
-          offset: Offset(0, 4),
+          offset: const Offset(0, 4),
         ),
       ],
     );
@@ -1354,11 +1400,18 @@ class TrendChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+
     return CustomPaint(
       painter: _TrendChartPainter(
         values: values,
         labels: labels,
         trendType: trendType,
+        lineColor: fitzaColors.primaryBlue,
+        gridColor: fitzaColors.border,
+        textColor: fitzaColors.secondaryText,
+        strongTextColor: fitzaColors.primaryText,
+        pointFillColor: fitzaColors.surface,
       ),
       child: const SizedBox.expand(),
     );
@@ -1369,14 +1422,22 @@ class _TrendChartPainter extends CustomPainter {
   final List<double?> values;
   final List<String> labels;
   final String trendType;
+  final Color lineColor;
+  final Color gridColor;
+  final Color textColor;
+  final Color strongTextColor;
+  final Color pointFillColor;
 
   _TrendChartPainter({
     required this.values,
     required this.labels,
     required this.trendType,
+    required this.lineColor,
+    required this.gridColor,
+    required this.textColor,
+    required this.strongTextColor,
+    required this.pointFillColor,
   });
-
-  static const Color primaryBlue = Color(0xFF1555C0);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1392,11 +1453,11 @@ class _TrendChartPainter extends CustomPainter {
     final chartHeight = chartBottom - chartTop;
 
     final axisPaint = Paint()
-      ..color = const Color(0xFFE1E7F0)
+      ..color = gridColor
       ..strokeWidth = 1.2;
 
     final tickPaint = Paint()
-      ..color = const Color(0xFFE1E7F0)
+      ..color = gridColor
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round;
 
@@ -1420,8 +1481,8 @@ class _TrendChartPainter extends CustomPainter {
       final labelPainter = TextPainter(
         text: TextSpan(
           text: _formatAxisLabel(value),
-          style: const TextStyle(
-            color: Color(0xFF667085),
+          style: TextStyle(
+            color: textColor,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -1460,18 +1521,18 @@ class _TrendChartPainter extends CustomPainter {
     }
 
     final linePaint = Paint()
-      ..color = primaryBlue
+      ..color = lineColor
       ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
     final pointFillPaint = Paint()
-      ..color = Colors.white
+      ..color = pointFillColor
       ..style = PaintingStyle.fill;
 
     final pointBorderPaint = Paint()
-      ..color = primaryBlue
+      ..color = lineColor
       ..strokeWidth = 1.8
       ..style = PaintingStyle.stroke;
 
@@ -1642,7 +1703,7 @@ class _TrendChartPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: isFirst ? const Color(0xFF0B1B4D) : const Color(0xFF667085),
+          color: isFirst ? strongTextColor : textColor,
           fontSize: 11.5,
           fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600,
         ),
@@ -1668,6 +1729,11 @@ class _TrendChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _TrendChartPainter oldDelegate) {
     return oldDelegate.values != values ||
         oldDelegate.labels != labels ||
-        oldDelegate.trendType != trendType;
+        oldDelegate.trendType != trendType ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.textColor != textColor ||
+        oldDelegate.strongTextColor != strongTextColor ||
+        oldDelegate.pointFillColor != pointFillColor;
   }
 }
