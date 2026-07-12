@@ -27,12 +27,13 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
   late String _selectedTrend;
   late String _selectedRange;
+  DateTime _focusedDate = DateTime.now();
 
   final List<String> _trendTypes = [
     'Weight',
     'BMI',
-    'Workouts',
     'Steps / Activity',
+    'Workouts',
   ];
 
   final List<String> _timeRanges = [
@@ -44,97 +45,216 @@ class _TrendsScreenState extends State<TrendsScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedTrend = widget.initialTrendType;
-    _selectedRange = widget.initialTimeRange;
+
+    _selectedTrend = _trendTypes.contains(widget.initialTrendType)
+        ? widget.initialTrendType
+        : 'Weight';
+
+    _selectedRange = _timeRanges.contains(widget.initialTimeRange)
+        ? widget.initialTimeRange
+        : 'Weekly';
+
+    _focusedDate = DateTime.now();
   }
 
-  bool get _usesFirestoreTrend {
+  bool get _usesWeightEntries {
     return _selectedTrend == 'Weight' || _selectedTrend == 'BMI';
-  }
-
-  List<WeightEntry> _entriesForSelectedRange(
-    List<WeightEntry> entries,
-  ) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    DateTime startDate;
-
-    if (_selectedRange == 'Weekly') {
-      startDate = today.subtract(const Duration(days: 6));
-    } else if (_selectedRange == 'Monthly') {
-      startDate = today.subtract(const Duration(days: 29));
-    } else {
-      startDate = today.subtract(const Duration(days: 364));
-    }
-
-    return entries
-        .where((entry) => !entry.recordedAt.isBefore(startDate))
-        .toList();
   }
 
   DateTime _dateOnly(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
-  DateTime _workoutRangeStartDate(DateTime today) {
+  DateTime _startOfWeek(DateTime date) {
+    final onlyDate = _dateOnly(date);
+    return onlyDate.subtract(Duration(days: onlyDate.weekday - 1));
+  }
+
+  DateTime _periodStart() {
+    final date = _dateOnly(_focusedDate);
+
     if (_selectedRange == 'Weekly') {
-      return today.subtract(const Duration(days: 6));
+      return _startOfWeek(date);
     }
 
     if (_selectedRange == 'Monthly') {
-      return today.subtract(const Duration(days: 29));
+      return DateTime(date.year, date.month, 1);
     }
 
-    return today.subtract(const Duration(days: 364));
+    return DateTime(date.year, 1, 1);
   }
 
-  List<WorkoutEntry> _workoutsForSelectedRange(
-    List<WorkoutEntry> workouts,
-  ) {
-    final today = _dateOnly(DateTime.now());
-    final startDate = _workoutRangeStartDate(today);
+  DateTime _periodEnd() {
+    final start = _periodStart();
 
-    return workouts.where((workout) {
-      final workoutDay = _dateOnly(workout.recordedAt);
+    if (_selectedRange == 'Weekly') {
+      return start.add(const Duration(days: 6));
+    }
 
-      return !workoutDay.isBefore(startDate) &&
-          !workoutDay.isAfter(today);
-    }).toList();
+    if (_selectedRange == 'Monthly') {
+      return DateTime(start.year, start.month + 1, 0);
+    }
+
+    return DateTime(start.year, 12, 31);
   }
 
-  List<_WorkoutTrendPoint> _buildWorkoutTrendPoints(
-    List<WorkoutEntry> workouts,
-  ) {
-    final today = _dateOnly(DateTime.now());
-    final startDate = _workoutRangeStartDate(today);
+  DateTime _periodStartFor(DateTime date) {
+    final onlyDate = _dateOnly(date);
 
-    final totalDays = today.difference(startDate).inDays + 1;
-    final pointCount = totalDays < 7 ? totalDays : 7;
+    if (_selectedRange == 'Weekly') {
+      return _startOfWeek(onlyDate);
+    }
 
-    return List.generate(pointCount, (index) {
-      final startOffset = index * totalDays ~/ pointCount;
-      final endOffset = ((index + 1) * totalDays ~/ pointCount) - 1;
+    if (_selectedRange == 'Monthly') {
+      return DateTime(onlyDate.year, onlyDate.month, 1);
+    }
 
-      final bucketStart = startDate.add(Duration(days: startOffset));
-      final bucketEnd = startDate.add(Duration(days: endOffset));
+    return DateTime(onlyDate.year, 1, 1);
+  }
 
-      final workoutCount = workouts.where((workout) {
-        final workoutDay = _dateOnly(workout.recordedAt);
+  bool get _canGoNext {
+    final currentStart = _periodStartFor(DateTime.now());
+    return _periodStart().isBefore(currentStart);
+  }
 
-        return !workoutDay.isBefore(bucketStart) &&
-            !workoutDay.isAfter(bucketEnd);
-      }).length;
+  void _movePeriodBack() {
+    setState(() {
+      if (_selectedRange == 'Weekly') {
+        _focusedDate = _focusedDate.subtract(const Duration(days: 7));
+      } else if (_selectedRange == 'Monthly') {
+        _focusedDate = DateTime(_focusedDate.year, _focusedDate.month - 1, 1);
+      } else {
+        _focusedDate = DateTime(_focusedDate.year - 1, 1, 1);
+      }
+    });
+  }
 
-      return _WorkoutTrendPoint(
-        label: _formatTrendDate(bucketEnd),
-        value: workoutCount.toDouble(),
+  void _movePeriodForward() {
+    if (!_canGoNext) {
+      return;
+    }
+
+    setState(() {
+      if (_selectedRange == 'Weekly') {
+        _focusedDate = _focusedDate.add(const Duration(days: 7));
+      } else if (_selectedRange == 'Monthly') {
+        _focusedDate = DateTime(_focusedDate.year, _focusedDate.month + 1, 1);
+      } else {
+        _focusedDate = DateTime(_focusedDate.year + 1, 1, 1);
+      }
+
+      final currentPeriodStart = _periodStartFor(DateTime.now());
+
+      if (_periodStart().isAfter(currentPeriodStart)) {
+        _focusedDate = DateTime.now();
+      }
+    });
+  }
+
+  List<_TrendSlot> _periodSlots() {
+    final start = _periodStart();
+    final end = _periodEnd();
+
+    if (_selectedRange == 'Weekly') {
+      return List.generate(7, (index) {
+        final date = start.add(Duration(days: index));
+
+        return _TrendSlot(
+          start: date,
+          end: date,
+          label: _shortWeekday(date),
+        );
+      });
+    }
+
+    if (_selectedRange == 'Monthly') {
+      final dayCount = end.difference(start).inDays + 1;
+
+      return List.generate(dayCount, (index) {
+        final date = start.add(Duration(days: index));
+
+        return _TrendSlot(
+          start: date,
+          end: date,
+          label: date.day.toString(),
+        );
+      });
+    }
+
+    return List.generate(12, (index) {
+      final monthStart = DateTime(start.year, index + 1, 1);
+      final monthEnd = DateTime(start.year, index + 2, 0);
+
+      return _TrendSlot(
+        start: monthStart,
+        end: monthEnd,
+        label: _shortMonth(monthStart),
       );
     });
   }
 
-  String _workoutCountLabel(int count) {
-    return '$count ${count == 1 ? 'workout' : 'workouts'}';
+  List<WeightEntry> _weightEntriesForPeriod(List<WeightEntry> entries) {
+    final start = _periodStart();
+    final end = _periodEnd();
+
+    return entries.where((entry) {
+      final entryDate = _dateOnly(entry.recordedAt);
+
+      return !entryDate.isBefore(start) && !entryDate.isAfter(end);
+    }).toList()
+      ..sort((first, second) => first.recordedAt.compareTo(second.recordedAt));
+  }
+
+  List<WorkoutEntry> _workoutsForPeriod(List<WorkoutEntry> workouts) {
+    final start = _periodStart();
+    final end = _periodEnd();
+
+    return workouts.where((workout) {
+      final workoutDate = _dateOnly(workout.recordedAt);
+
+      return !workoutDate.isBefore(start) && !workoutDate.isAfter(end);
+    }).toList()
+      ..sort((first, second) => first.recordedAt.compareTo(second.recordedAt));
+  }
+
+  List<WorkoutEntry> _workoutsForCustomPeriod({
+    required List<WorkoutEntry> workouts,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return workouts.where((workout) {
+      final workoutDate = _dateOnly(workout.recordedAt);
+
+      return !workoutDate.isBefore(start) && !workoutDate.isAfter(end);
+    }).toList();
+  }
+
+  DateTime _previousPeriodStart() {
+    final start = _periodStart();
+
+    if (_selectedRange == 'Weekly') {
+      return start.subtract(const Duration(days: 7));
+    }
+
+    if (_selectedRange == 'Monthly') {
+      return DateTime(start.year, start.month - 1, 1);
+    }
+
+    return DateTime(start.year - 1, 1, 1);
+  }
+
+  DateTime _previousPeriodEnd() {
+    final previousStart = _previousPeriodStart();
+
+    if (_selectedRange == 'Weekly') {
+      return previousStart.add(const Duration(days: 6));
+    }
+
+    if (_selectedRange == 'Monthly') {
+      return DateTime(previousStart.year, previousStart.month + 1, 0);
+    }
+
+    return DateTime(previousStart.year, 12, 31);
   }
 
   num? _numberValue(dynamic value) {
@@ -143,75 +263,6 @@ class _TrendsScreenState extends State<TrendsScreen> {
     }
 
     return double.tryParse(value?.toString() ?? '');
-  }
-
-  List<_StepEntry> _stepEntriesForSelectedRange(
-    List<WorkoutEntry> allWorkouts,
-  ) {
-    final rangeWorkouts = _workoutsForSelectedRange(allWorkouts);
-    final stepEntries = <_StepEntry>[];
-
-    for (final workout in rangeWorkouts) {
-      if (workout.workoutType != 'Cardio') {
-        continue;
-      }
-
-      for (final exercise in workout.exercises) {
-        final stepsValue = _numberValue(exercise['steps']);
-
-        if (stepsValue == null || stepsValue <= 0) {
-          continue;
-        }
-
-        stepEntries.add(
-          _StepEntry(
-            recordedAt: workout.recordedAt,
-            steps: stepsValue.toDouble(),
-          ),
-        );
-      }
-    }
-
-    stepEntries.sort(
-      (first, second) => first.recordedAt.compareTo(second.recordedAt),
-    );
-
-    return stepEntries;
-  }
-
-  List<_ActivityTrendPoint> _buildActivityTrendPoints(
-    List<_StepEntry> stepEntries,
-  ) {
-    final today = _dateOnly(DateTime.now());
-    final startDate = _workoutRangeStartDate(today);
-
-    final totalDays = today.difference(startDate).inDays + 1;
-    final pointCount = totalDays < 7 ? totalDays : 7;
-
-    return List.generate(pointCount, (index) {
-      final startOffset = index * totalDays ~/ pointCount;
-      final endOffset = ((index + 1) * totalDays ~/ pointCount) - 1;
-
-      final bucketStart = startDate.add(Duration(days: startOffset));
-      final bucketEnd = startDate.add(Duration(days: endOffset));
-
-      final stepsInBucket = stepEntries
-          .where((entry) {
-            final entryDate = _dateOnly(entry.recordedAt);
-
-            return !entryDate.isBefore(bucketStart) &&
-                !entryDate.isAfter(bucketEnd);
-          })
-          .fold<double>(
-            0,
-            (total, entry) => total + entry.steps,
-          );
-
-      return _ActivityTrendPoint(
-        label: _formatTrendDate(bucketEnd),
-        value: stepsInBucket,
-      );
-    });
   }
 
   String _formatStepCount(double steps) {
@@ -228,7 +279,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
     return '${thousands.toStringAsFixed(1)}k';
   }
 
-  String _formatTrendDate(DateTime date) {
+  String _shortWeekday(DateTime date) {
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return weekdays[date.weekday - 1];
+  }
+
+  String _shortMonth(DateTime date) {
     const months = [
       'Jan',
       'Feb',
@@ -244,7 +300,49 @@ class _TrendsScreenState extends State<TrendsScreen> {
       'Dec',
     ];
 
-    return '${date.day} ${months[date.month - 1]}';
+    return months[date.month - 1];
+  }
+
+  String _fullMonth(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    return months[date.month - 1];
+  }
+
+  String _formatPeriodDate(DateTime date) {
+    return '${date.day} ${_shortMonth(date)}';
+  }
+
+  String get _periodDisplayTitle {
+    final start = _periodStart();
+    final end = _periodEnd();
+
+    if (_selectedRange == 'Weekly') {
+      if (start.year == end.year) {
+        return '${_formatPeriodDate(start)} – ${_formatPeriodDate(end)} ${end.year}';
+      }
+
+      return '${_formatPeriodDate(start)} ${start.year} – ${_formatPeriodDate(end)} ${end.year}';
+    }
+
+    if (_selectedRange == 'Monthly') {
+      return '${_fullMonth(start)} ${start.year}';
+    }
+
+    return start.year.toString();
   }
 
   String get _periodLabel {
@@ -263,10 +361,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
     switch (trend) {
       case 'BMI':
         return Icons.monitor_weight_outlined;
-      case 'Workouts':
-        return Icons.fitness_center_outlined;
       case 'Steps / Activity':
         return Icons.directions_walk_outlined;
+      case 'Workouts':
+        return Icons.fitness_center_outlined;
       default:
         return Icons.scale_outlined;
     }
@@ -276,90 +374,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
     switch (_selectedTrend) {
       case 'BMI':
         return 'BMI Trend';
+      case 'Steps / Activity':
+        return 'Steps Trend';
       case 'Workouts':
         return 'Workout Trend';
-      case 'Steps / Activity':
-        return 'Steps / Activity Trend';
       default:
         return 'Weight Trend';
-    }
-  }
-
-  String get _latestValue {
-    switch (_selectedTrend) {
-      case 'BMI':
-        return '22.4';
-      case 'Workouts':
-        return _selectedRange == 'Weekly'
-            ? '4 workouts'
-            : _selectedRange == 'Monthly'
-                ? '16 workouts'
-                : '146 workouts';
-      case 'Steps / Activity':
-        return _selectedRange == 'Weekly'
-            ? '8,245'
-            : _selectedRange == 'Monthly'
-                ? '241,300'
-                : '2.7M';
-      default:
-        return '72.4 kg';
-    }
-  }
-
-  String get _changeValue {
-    switch (_selectedTrend) {
-      case 'BMI':
-        return '↓ 0.4';
-      case 'Workouts':
-        return '↑ 1 workout';
-      case 'Steps / Activity':
-        return '↑ 12.5%';
-      default:
-        return '↓ 1.2 kg';
-    }
-  }
-
-  String get _insight {
-    switch (_selectedTrend) {
-      case 'BMI':
-        return 'Your BMI has improved steadily this week.';
-      case 'Workouts':
-        return 'You completed 4 workouts this week. Keep it up!';
-      case 'Steps / Activity':
-        return 'You are getting closer to your activity goal.';
-      default:
-        return 'Your weight has decreased steadily this week.';
-    }
-  }
-
-  List<double> get _chartValues {
-    if (_selectedTrend == 'BMI') {
-      return [23.2, 23.0, 22.9, 22.8, 22.6, 22.5, 22.4];
-    }
-
-    if (_selectedTrend == 'Workouts') {
-      return _selectedRange == 'Weekly'
-          ? [0, 1, 1, 2, 2, 3, 4]
-          : _selectedRange == 'Monthly'
-              ? [2, 4, 7, 9, 11, 13, 16]
-              : [10, 24, 40, 56, 71, 95, 146];
-    }
-
-    if (_selectedTrend == 'Steps / Activity') {
-      return [5200, 6300, 7100, 6800, 7800, 8200, 8245];
-    }
-
-    return [74.5, 73.9, 73.5, 73.1, 72.8, 72.5, 72.4];
-  }
-
-  List<String> get _chartLabels {
-    switch (_selectedRange) {
-      case 'Monthly':
-        return ['May 1', 'May 5', 'May 10', 'May 15', 'May 20', 'May 25', 'May 29'];
-      case 'Yearly':
-        return ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov', 'Dec'];
-      default:
-        return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     }
   }
 
@@ -371,7 +391,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
               child: Row(
                 children: [
                   IconButton(
@@ -379,7 +399,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     icon: const Icon(
                       Icons.arrow_back_rounded,
                       color: darkText,
-                      size: 30,
+                      size: 29,
                     ),
                   ),
                   const Expanded(
@@ -388,8 +408,9 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: darkText,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ),
@@ -400,7 +421,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -411,7 +432,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                         child: Row(
                           children: _trendTypes.map((trend) {
                             return Padding(
-                              padding: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.only(right: 7),
                               child: _trendChip(
                                 label: trend,
                                 icon: _trendIcon(trend),
@@ -422,7 +443,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
                     _sectionCard(
                       title: 'Time Range',
@@ -431,34 +452,42 @@ class _TrendsScreenState extends State<TrendsScreen> {
                           final isSelected = _selectedRange == range;
 
                           return Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedRange = range;
-                                });
-                              },
-                              child: Container(
-                                height: 54,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? primaryBlue
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: range == _timeRanges.last ? 0 : 7,
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(13),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRange = range;
+                                    _focusedDate = DateTime.now();
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  height: 40,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
                                     color: isSelected
                                         ? primaryBlue
-                                        : const Color(0xFFD4DDEA),
+                                        : const Color(0xFFF9FBFE),
+                                    borderRadius: BorderRadius.circular(13),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? primaryBlue
+                                          : const Color(0xFFD4DDEA),
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  range,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : darkText,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w600,
+                                  child: Text(
+                                    range,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : darkText,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -467,6 +496,9 @@ class _TrendsScreenState extends State<TrendsScreen> {
                         }).toList(),
                       ),
                     ),
+
+                    const SizedBox(height: 12),
+
                     _trendContent(),
                   ],
                 ),
@@ -479,7 +511,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }
 
   Widget _trendContent() {
-    if (_usesFirestoreTrend) {
+    if (_usesWeightEntries) {
       return StreamBuilder<List<WeightEntry>>(
         stream: WeightFirestoreService.instance.getWeightEntriesStream(),
         builder: (context, snapshot) {
@@ -496,118 +528,92 @@ class _TrendsScreenState extends State<TrendsScreen> {
             );
           }
 
-          return _firestoreTrendContent(snapshot.data!);
+          return _weightOrBmiTrendContent(snapshot.data!);
         },
       );
     }
 
-    if (_selectedTrend == 'Workouts' ||
-        _selectedTrend == 'Steps / Activity') {
-      return StreamBuilder<List<WorkoutEntry>>(
-        stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _statusTrendContent(
-              message: _selectedTrend == 'Workouts'
-                  ? 'Could not load workout trend data.'
-                  : 'Could not load activity trend data.',
-            );
-          }
+    return StreamBuilder<List<WorkoutEntry>>(
+      stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _statusTrendContent(
+            message: _selectedTrend == 'Workouts'
+                ? 'Could not load workout trend data.'
+                : 'Could not load activity trend data.',
+          );
+        }
 
-          if (!snapshot.hasData) {
-            return _statusTrendContent(
-              message: _selectedTrend == 'Workouts'
-                  ? 'Loading workout trend data...'
-                  : 'Loading activity trend data...',
-              isLoading: true,
-            );
-          }
+        if (!snapshot.hasData) {
+          return _statusTrendContent(
+            message: _selectedTrend == 'Workouts'
+                ? 'Loading workout trend data...'
+                : 'Loading activity trend data...',
+            isLoading: true,
+          );
+        }
 
-          if (_selectedTrend == 'Workouts') {
-            return _workoutTrendContent(snapshot.data!);
-          }
+        if (_selectedTrend == 'Workouts') {
+          return _workoutTrendContent(snapshot.data!);
+        }
 
-          return _activityTrendContent(snapshot.data!);
-        },
-      );
-    }
-
-    return _demoTrendContent();
+        return _activityTrendContent(snapshot.data!);
+      },
+    );
   }
 
-  Widget _firestoreTrendContent(List<WeightEntry> allEntries) {
-    final rangeEntries = _entriesForSelectedRange(allEntries);
+  Widget _weightOrBmiTrendContent(List<WeightEntry> allEntries) {
+    final periodEntries = _weightEntriesForPeriod(allEntries);
+    final isBmiTrend = _selectedTrend == 'BMI';
+    final slots = _periodSlots();
+    final values = List<double?>.filled(slots.length, null);
 
-    if (rangeEntries.isEmpty) {
-      return _statusTrendContent(
-        message: 'No ${_selectedTrend.toLowerCase()} entries in this period.',
+    for (int index = 0; index < slots.length; index++) {
+      final slot = slots[index];
+
+      final slotEntries = periodEntries.where((entry) {
+        final entryDate = _dateOnly(entry.recordedAt);
+
+        return !entryDate.isBefore(slot.start) && !entryDate.isAfter(slot.end);
+      }).toList();
+
+      if (slotEntries.isEmpty) {
+        continue;
+      }
+
+      slotEntries.sort(
+        (first, second) => first.recordedAt.compareTo(second.recordedAt),
+      );
+
+      final latestEntry = slotEntries.last;
+      values[index] = isBmiTrend ? latestEntry.bmi : latestEntry.weightKg;
+    }
+
+    if (periodEntries.isEmpty) {
+      return _trendCard(
+        values: values,
+        labels: slots.map((slot) => slot.label).toList(),
+        averageValue: '—',
+        latestValue: '—',
+        changeValue: '—',
+        changeColor: primaryBlue,
+        changeIcon: Icons.remove_rounded,
+        badgeText: 'No data',
+        badgeTextColor: primaryBlue,
+        badgeBackgroundColor: const Color(0xFFEAF3FF),
+        insight: 'No ${_selectedTrend.toLowerCase()} entries saved this $_periodLabel.',
       );
     }
 
-    final isBmiTrend = _selectedTrend == 'BMI';
-
-    final valuesForMetrics = rangeEntries
+    final metricValues = periodEntries
         .map((entry) => isBmiTrend ? entry.bmi : entry.weightKg)
         .toList();
 
-    final chartEntries = rangeEntries.length > 7
-        ? rangeEntries.sublist(rangeEntries.length - 7)
-        : rangeEntries;
+    final average = metricValues.reduce((total, value) => total + value) /
+        metricValues.length;
 
-    final chartValues = chartEntries
-        .map((entry) => isBmiTrend ? entry.bmi : entry.weightKg)
-        .toList();
-
-    final chartLabels = chartEntries
-        .map((entry) => _formatTrendDate(entry.recordedAt))
-        .toList();
-
-    final average =
-        valuesForMetrics.reduce((total, value) => total + value) /
-            valuesForMetrics.length;
-
-    final latest = valuesForMetrics.last;
-
-    final change =
-        valuesForMetrics.length >= 2 ? latest - valuesForMetrics.first : null;
-
-    String changeValue;
-    String badgeText;
-    Color changeColor;
-    Color badgeBackgroundColor;
-    IconData changeIcon;
-
-    if (change == null) {
-      changeValue = '—';
-      badgeText = 'Latest entry';
-      changeColor = primaryBlue;
-      badgeBackgroundColor = const Color(0xFFEAF3FF);
-      changeIcon = Icons.remove_rounded;
-    } else if (change < 0) {
-      changeValue = isBmiTrend
-          ? '↓ ${change.abs().toStringAsFixed(1)}'
-          : '↓ ${change.abs().toStringAsFixed(1)} kg';
-
-      badgeText = changeValue;
-      changeColor = successGreen;
-      badgeBackgroundColor = const Color(0xFFE8F7EC);
-      changeIcon = Icons.trending_down_rounded;
-    } else if (change > 0) {
-      changeValue = isBmiTrend
-          ? '↑ ${change.toStringAsFixed(1)}'
-          : '↑ ${change.toStringAsFixed(1)} kg';
-
-      badgeText = changeValue;
-      changeColor = Colors.orange;
-      badgeBackgroundColor = const Color(0xFFFFF4E5);
-      changeIcon = Icons.trending_up_rounded;
-    } else {
-      changeValue = 'No change';
-      badgeText = 'No change';
-      changeColor = primaryBlue;
-      badgeBackgroundColor = const Color(0xFFEAF3FF);
-      changeIcon = Icons.remove_rounded;
-    }
+    final latest = metricValues.last;
+    final change = metricValues.length >= 2 ? latest - metricValues.first : null;
 
     final averageValue = isBmiTrend
         ? average.toStringAsFixed(1)
@@ -617,231 +623,278 @@ class _TrendsScreenState extends State<TrendsScreen> {
         ? latest.toStringAsFixed(1)
         : '${latest.toStringAsFixed(1)} kg';
 
-    String insight;
+    final changeInfo = _changeInfo(
+      change: change,
+      suffix: isBmiTrend ? '' : ' kg',
+      downIsGood: true,
+      firstText: 'Latest entry',
+    );
 
-    if (change == null) {
-      insight =
-          'You have one saved entry this $_periodLabel. Add another entry to compare your progress.';
-    } else if (isBmiTrend) {
-      insight = change < 0
-          ? 'Your BMI is lower by ${change.abs().toStringAsFixed(1)} this $_periodLabel.'
-          : change > 0
-              ? 'Your BMI is higher by ${change.toStringAsFixed(1)} this $_periodLabel.'
-              : 'Your BMI has not changed this $_periodLabel.';
-    } else {
-      insight = change < 0
-          ? 'Your weight is down ${change.abs().toStringAsFixed(1)} kg this $_periodLabel.'
-          : change > 0
-              ? 'Your weight is up ${change.toStringAsFixed(1)} kg this $_periodLabel.'
-              : 'Your weight has not changed this $_periodLabel.';
-    }
-
-    return Column(
-      children: [
-        _trendCard(
-          values: chartValues,
-          labels: chartLabels,
-          averageValue: averageValue,
-          latestValue: latestValue,
-          changeValue: changeValue,
-          changeColor: changeColor,
-          changeIcon: changeIcon,
-          badgeText: badgeText,
-          badgeTextColor: changeColor,
-          badgeBackgroundColor: badgeBackgroundColor,
-        ),
-        const SizedBox(height: 14),
-        _insightCard(insight),
-      ],
+    return _trendCard(
+      values: values,
+      labels: slots.map((slot) => slot.label).toList(),
+      averageValue: averageValue,
+      latestValue: latestValue,
+      changeValue: changeInfo.text,
+      changeColor: changeInfo.color,
+      changeIcon: changeInfo.icon,
+      badgeText: changeInfo.badge,
+      badgeTextColor: changeInfo.color,
+      badgeBackgroundColor: changeInfo.backgroundColor,
+      insight: _weightInsight(
+        change: change,
+        isBmiTrend: isBmiTrend,
+      ),
     );
   }
 
   Widget _workoutTrendContent(List<WorkoutEntry> allWorkouts) {
-    final rangeWorkouts = _workoutsForSelectedRange(allWorkouts);
+    final periodWorkouts = _workoutsForPeriod(allWorkouts);
 
-    if (rangeWorkouts.isEmpty) {
-      return _statusTrendContent(
-        message: 'No workouts saved in this period.',
-      );
-    }
+    final previousWorkouts = _workoutsForCustomPeriod(
+      workouts: allWorkouts,
+      start: _previousPeriodStart(),
+      end: _previousPeriodEnd(),
+    );
 
-    final points = _buildWorkoutTrendPoints(rangeWorkouts);
+    final today = _dateOnly(DateTime.now());
+    final slots = _periodSlots();
 
-    final bucketCounts = points.map((point) => point.value).toList();
-    final labels = points.map((point) => point.label).toList();
+    final values = slots.map<double?>((slot) {
+      if (slot.start.isAfter(today)) {
+        return null;
+      }
 
-    final chartValues = <double>[];
-    var cumulativeTotal = 0.0;
+      final count = periodWorkouts.where((workout) {
+        final workoutDate = _dateOnly(workout.recordedAt);
 
-    for (final count in bucketCounts) {
-      cumulativeTotal += count;
-      chartValues.add(cumulativeTotal);
-    }
+        return !workoutDate.isBefore(slot.start) &&
+            !workoutDate.isAfter(slot.end);
+      }).length;
 
-    final average =
-        bucketCounts.reduce((total, value) => total + value) /
-            bucketCounts.length;
+      return count.toDouble();
+    }).toList();
 
-    final totalWorkouts = rangeWorkouts.length;
-    final firstPeriodTotal = chartValues.first.toInt();
-    final change = totalWorkouts - firstPeriodTotal;
+    final totalWorkouts = periodWorkouts.length;
+    final previousTotal = previousWorkouts.length;
+    final completedSlots = values.whereType<double>().toList();
 
-    String changeValue;
-    Color changeColor;
-    IconData changeIcon;
+    final average = completedSlots.isEmpty
+        ? 0.0
+        : completedSlots.reduce((total, value) => total + value) /
+            completedSlots.length;
 
-    if (totalWorkouts == 1) {
-      changeValue = 'First workout';
-      changeColor = primaryBlue;
-      changeIcon = Icons.remove_rounded;
-    } else if (change > 0) {
-      changeValue = '↑ ${_workoutCountLabel(change)}';
-      changeColor = successGreen;
-      changeIcon = Icons.trending_up_rounded;
-    } else {
-      changeValue = 'No change';
-      changeColor = primaryBlue;
-      changeIcon = Icons.remove_rounded;
-    }
+    final change = totalWorkouts - previousTotal;
 
-    final insight = totalWorkouts == 1
-        ? 'You completed your first workout this $_periodLabel. Keep building the habit.'
+    final changeInfo = _countChangeInfo(
+      change: change,
+      unit: change.abs() == 1 ? 'workout' : 'workouts',
+    );
+
+    final insight = totalWorkouts == 0
+        ? 'No workouts saved this $_periodLabel yet.'
         : 'You completed ${_workoutCountLabel(totalWorkouts)} this $_periodLabel. Keep it up!';
 
-    return Column(
-      children: [
-        _trendCard(
-          values: chartValues,
-          labels: labels,
-          averageValue: '${average.toStringAsFixed(1)} workouts',
-          latestValue: _workoutCountLabel(totalWorkouts),
-          changeValue: changeValue,
-          changeColor: changeColor,
-          changeIcon: changeIcon,
-          badgeText: _workoutCountLabel(totalWorkouts),
-          badgeTextColor: primaryBlue,
-          badgeBackgroundColor: const Color(0xFFEAF3FF),
-        ),
-        const SizedBox(height: 14),
-        _insightCard(insight),
-      ],
+    return _trendCard(
+      values: values,
+      labels: slots.map((slot) => slot.label).toList(),
+      averageValue: '${average.toStringAsFixed(1)} workouts',
+      latestValue: _workoutCountLabel(totalWorkouts),
+      changeValue: changeInfo.text,
+      changeColor: changeInfo.color,
+      changeIcon: changeInfo.icon,
+      badgeText: _workoutCountLabel(totalWorkouts),
+      badgeTextColor: primaryBlue,
+      badgeBackgroundColor: const Color(0xFFEAF3FF),
+      insight: insight,
     );
   }
 
   Widget _activityTrendContent(List<WorkoutEntry> allWorkouts) {
-    final stepEntries = _stepEntriesForSelectedRange(allWorkouts);
+    final periodWorkouts = _workoutsForPeriod(allWorkouts);
 
-    if (stepEntries.isEmpty) {
-      return _statusTrendContent(
-        message: 'No cardio step data saved in this period.',
-      );
-    }
-
-    final points = _buildActivityTrendPoints(stepEntries);
-
-    final chartValues = points.map((point) => point.value).toList();
-    final chartLabels = points.map((point) => point.label).toList();
-
-    final totalSteps = stepEntries.fold<double>(
-      0,
-      (total, entry) => total + entry.steps,
+    final previousWorkouts = _workoutsForCustomPeriod(
+      workouts: allWorkouts,
+      start: _previousPeriodStart(),
+      end: _previousPeriodEnd(),
     );
 
-    final averageSteps = totalSteps / stepEntries.length;
-    final latestEntry = stepEntries.last;
-    final previousEntry =
-        stepEntries.length >= 2 ? stepEntries[stepEntries.length - 2] : null;
+    final today = _dateOnly(DateTime.now());
+    final slots = _periodSlots();
 
-    final change = previousEntry == null
-        ? null
-        : latestEntry.steps - previousEntry.steps;
+    double stepsForWorkouts(List<WorkoutEntry> workouts) {
+      var total = 0.0;
 
-    String changeValue;
-    Color changeColor;
-    IconData changeIcon;
+      for (final workout in workouts) {
+        if (workout.workoutType != 'Cardio') {
+          continue;
+        }
 
-    if (change == null) {
-      changeValue = 'First activity';
-      changeColor = primaryBlue;
-      changeIcon = Icons.remove_rounded;
-    } else if (change > 0) {
-      changeValue = '↑ ${_formatStepCount(change)} steps';
-      changeColor = successGreen;
-      changeIcon = Icons.trending_up_rounded;
-    } else if (change < 0) {
-      changeValue = '↓ ${_formatStepCount(change.abs())} steps';
-      changeColor = Colors.orange;
-      changeIcon = Icons.trending_down_rounded;
-    } else {
-      changeValue = 'No change';
-      changeColor = primaryBlue;
-      changeIcon = Icons.remove_rounded;
+        for (final exercise in workout.exercises) {
+          final steps = _numberValue(exercise['steps']);
+
+          if (steps != null && steps > 0) {
+            total += steps.toDouble();
+          }
+        }
+      }
+
+      return total;
     }
 
-    final insight = stepEntries.length == 1
-        ? 'You logged ${_formatStepCount(totalSteps)} steps in your latest cardio activity this $_periodLabel.'
-        : 'You logged ${_formatStepCount(totalSteps)} steps across ${stepEntries.length} cardio activities this $_periodLabel.';
+    final values = slots.map<double?>((slot) {
+      if (slot.start.isAfter(today)) {
+        return null;
+      }
 
-    return Column(
-      children: [
-        _trendCard(
-          values: chartValues,
-          labels: chartLabels,
-          averageValue: '${_formatStepCount(averageSteps)} steps',
-          latestValue: '${_formatStepCount(latestEntry.steps)} steps',
-          changeValue: changeValue,
-          changeColor: changeColor,
-          changeIcon: changeIcon,
-          badgeText: '${_formatStepCount(totalSteps)} steps',
-          badgeTextColor: primaryBlue,
-          badgeBackgroundColor: const Color(0xFFEAF3FF),
-        ),
-        const SizedBox(height: 14),
-        _insightCard(insight),
-      ],
+      final slotWorkouts = periodWorkouts.where((workout) {
+        final workoutDate = _dateOnly(workout.recordedAt);
+
+        return !workoutDate.isBefore(slot.start) &&
+            !workoutDate.isAfter(slot.end);
+      }).toList();
+
+      return stepsForWorkouts(slotWorkouts);
+    }).toList();
+
+    final totalSteps = stepsForWorkouts(periodWorkouts);
+    final previousSteps = stepsForWorkouts(previousWorkouts);
+    final completedSlots = values.whereType<double>().toList();
+
+    final averageSteps = completedSlots.isEmpty
+        ? 0.0
+        : completedSlots.reduce((total, value) => total + value) /
+            completedSlots.length;
+
+    final latestSteps = completedSlots.isEmpty ? 0.0 : completedSlots.last;
+    final change = totalSteps - previousSteps;
+
+    final changeInfo = _countChangeInfo(
+      change: change.round(),
+      unit: 'steps',
+      formatter: (value) => _formatStepCount(value.toDouble()),
+    );
+
+    final insight = totalSteps <= 0
+        ? 'No step activity saved this $_periodLabel yet.'
+        : 'You logged ${_formatStepCount(totalSteps)} steps this $_periodLabel.';
+
+    return _trendCard(
+      values: values,
+      labels: slots.map((slot) => slot.label).toList(),
+      averageValue: '${_formatStepCount(averageSteps)} steps',
+      latestValue: '${_formatStepCount(latestSteps)} steps',
+      changeValue: changeInfo.text,
+      changeColor: changeInfo.color,
+      changeIcon: changeInfo.icon,
+      badgeText: '${_formatStepCount(totalSteps)} steps',
+      badgeTextColor: primaryBlue,
+      badgeBackgroundColor: const Color(0xFFEAF3FF),
+      insight: insight,
     );
   }
 
-  Widget _demoTrendContent() {
-    final values = _chartValues;
+  String _workoutCountLabel(int count) {
+    return '$count ${count == 1 ? 'workout' : 'workouts'}';
+  }
 
-    final average =
-        values.reduce((total, value) => total + value) / values.length;
-
-    String averageValue;
-
-    if (_selectedTrend == 'BMI') {
-      averageValue = average.toStringAsFixed(1);
-    } else if (_selectedTrend == 'Weight') {
-      averageValue = '${average.toStringAsFixed(1)} kg';
-    } else if (_selectedTrend == 'Workouts') {
-      averageValue = '${average.toStringAsFixed(0)} workouts';
-    } else {
-      averageValue = average.toStringAsFixed(0);
+  _ChangeInfo _changeInfo({
+    required double? change,
+    required String suffix,
+    required bool downIsGood,
+    required String firstText,
+  }) {
+    if (change == null) {
+      return _ChangeInfo(
+        text: '—',
+        badge: firstText,
+        color: primaryBlue,
+        backgroundColor: const Color(0xFFEAF3FF),
+        icon: Icons.remove_rounded,
+      );
     }
 
-    final isIncrease = _changeValue.startsWith('↑');
+    if (change == 0) {
+      return const _ChangeInfo(
+        text: 'No change',
+        badge: 'No change',
+        color: primaryBlue,
+        backgroundColor: Color(0xFFEAF3FF),
+        icon: Icons.remove_rounded,
+      );
+    }
 
-    return Column(
-      children: [
-        _trendCard(
-          values: _chartValues,
-          labels: _chartLabels,
-          averageValue: averageValue,
-          latestValue: _latestValue,
-          changeValue: _changeValue,
-          changeColor: successGreen,
-          changeIcon: isIncrease
-              ? Icons.trending_up_rounded
-              : Icons.trending_down_rounded,
-          badgeText: _changeValue,
-          badgeTextColor: successGreen,
-          badgeBackgroundColor: const Color(0xFFE7F6EB),
-        ),
-        const SizedBox(height: 14),
-        _insightCard(_insight),
-      ],
+    final isDown = change < 0;
+    final isGood = downIsGood ? isDown : !isDown;
+    final arrow = isDown ? '↓' : '↑';
+    final amount = change.abs().toStringAsFixed(1);
+    final color = isGood ? successGreen : Colors.orange;
+    final background = isGood
+        ? const Color(0xFFE8F7EC)
+        : const Color(0xFFFFF4E5);
+
+    return _ChangeInfo(
+      text: '$arrow $amount$suffix',
+      badge: '$arrow $amount$suffix',
+      color: color,
+      backgroundColor: background,
+      icon: isDown ? Icons.trending_down_rounded : Icons.trending_up_rounded,
     );
+  }
+
+  _ChangeInfo _countChangeInfo({
+    required int change,
+    required String unit,
+    String Function(int value)? formatter,
+  }) {
+    if (change == 0) {
+      return const _ChangeInfo(
+        text: 'No change',
+        badge: 'No change',
+        color: primaryBlue,
+        backgroundColor: Color(0xFFEAF3FF),
+        icon: Icons.remove_rounded,
+      );
+    }
+
+    final isUp = change > 0;
+    final amount = formatter == null
+        ? change.abs().toString()
+        : formatter(change.abs());
+
+    return _ChangeInfo(
+      text: '${isUp ? '↑' : '↓'} $amount $unit',
+      badge: '${isUp ? '↑' : '↓'} $amount $unit',
+      color: isUp ? successGreen : Colors.orange,
+      backgroundColor:
+          isUp ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E5),
+      icon: isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+    );
+  }
+
+  String _weightInsight({
+    required double? change,
+    required bool isBmiTrend,
+  }) {
+    if (change == null) {
+      return 'You have one saved entry this $_periodLabel. Add another entry to compare your progress.';
+    }
+
+    if (change == 0) {
+      return isBmiTrend
+          ? 'Your BMI has not changed this $_periodLabel.'
+          : 'Your weight has not changed this $_periodLabel.';
+    }
+
+    if (isBmiTrend) {
+      return change < 0
+          ? 'Your BMI is lower by ${change.abs().toStringAsFixed(1)} this $_periodLabel.'
+          : 'Your BMI is higher by ${change.toStringAsFixed(1)} this $_periodLabel.';
+    }
+
+    return change < 0
+        ? 'Your weight is down ${change.abs().toStringAsFixed(1)} kg this $_periodLabel.'
+        : 'Your weight is up ${change.toStringAsFixed(1)} kg this $_periodLabel.';
   }
 
   Widget _statusTrendContent({
@@ -850,31 +903,36 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _chartTitle,
-            style: const TextStyle(
-              color: darkText,
-              fontSize: 25,
-              fontWeight: FontWeight.bold,
-            ),
+          _trendCardHeader(
+            badgeText: 'No data',
+            badgeTextColor: primaryBlue,
+            badgeBackgroundColor: const Color(0xFFEAF3FF),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          _periodNavigator(),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 260,
+            height: 150,
             child: Center(
               child: isLoading
-                  ? const CircularProgressIndicator()
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    )
                   : Text(
                       message,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: greyText,
-                        fontSize: 16,
+                        fontSize: 13.5,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
             ),
@@ -885,7 +943,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }
 
   Widget _trendCard({
-    required List<double> values,
+    required List<double?> values,
     required List<String> labels,
     required String averageValue,
     required String latestValue,
@@ -895,94 +953,179 @@ class _TrendsScreenState extends State<TrendsScreen> {
     required String badgeText,
     required Color badgeTextColor,
     required Color badgeBackgroundColor,
+    required String insight,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _chartTitle,
-                  style: const TextStyle(
-                    color: darkText,
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: badgeBackgroundColor,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  badgeText,
-                  style: TextStyle(
-                    color: badgeTextColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 260,
-            child: TrendChart(
-              values: values,
-              labels: labels,
-              trendType: _selectedTrend,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: _cardDecoration(),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _compactMetric(
-                  icon: Icons.show_chart_rounded,
-                  label: 'Average',
-                  value: averageValue,
+              _trendCardHeader(
+                badgeText: badgeText,
+                badgeTextColor: badgeTextColor,
+                badgeBackgroundColor: badgeBackgroundColor,
+              ),
+              const SizedBox(height: 12),
+              _periodNavigator(),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 160,
+                child: TrendChart(
+                  values: values,
+                  labels: labels,
+                  trendType: _selectedTrend,
                 ),
               ),
-              Container(
-                width: 1,
-                height: 74,
-                color: const Color(0xFFE1E7F0),
+              const SizedBox(height: 13),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _compactMetric(
+                      icon: Icons.show_chart_rounded,
+                      label: 'Average',
+                      value: averageValue,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 56,
+                    color: const Color(0xFFE1E7F0),
+                  ),
+                  Expanded(
+                    child: _compactMetric(
+                      icon: _trendIcon(_selectedTrend),
+                      label: 'Latest',
+                      value: latestValue,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 56,
+                    color: const Color(0xFFE1E7F0),
+                  ),
+                  Expanded(
+                    child: _compactMetric(
+                      icon: changeIcon,
+                      label: 'Change',
+                      value: changeValue,
+                      valueColor: changeColor,
+                    ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: _compactMetric(
-                  icon: _trendIcon(_selectedTrend),
-                  label: 'Latest',
-                  value: latestValue,
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _insightCard(insight),
+      ],
+    );
+  }
+
+  Widget _trendCardHeader({
+    required String badgeText,
+    required Color badgeTextColor,
+    required Color badgeBackgroundColor,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _chartTitle,
+            style: const TextStyle(
+              color: darkText,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 11,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: badgeBackgroundColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            badgeText,
+            style: TextStyle(
+              color: badgeTextColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _periodNavigator() {
+    return Row(
+      children: [
+        _periodArrowButton(
+          icon: Icons.chevron_left_rounded,
+          onTap: _movePeriodBack,
+          isEnabled: true,
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Text(
+                _periodDisplayTitle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: darkText,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.1,
                 ),
               ),
-              Container(
-                width: 1,
-                height: 74,
-                color: const Color(0xFFE1E7F0),
-              ),
-              Expanded(
-                child: _compactMetric(
-                  icon: changeIcon,
-                  label: 'Change',
-                  value: changeValue,
-                  valueColor: changeColor,
+              const SizedBox(height: 2),
+              Text(
+                _selectedRange,
+                style: const TextStyle(
+                  color: greyText,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-        ],
+        ),
+        _periodArrowButton(
+          icon: Icons.chevron_right_rounded,
+          onTap: _movePeriodForward,
+          isEnabled: _canGoNext,
+        ),
+      ],
+    );
+  }
+
+  Widget _periodArrowButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isEnabled,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: isEnabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(
+          icon,
+          color: isEnabled ? greyText : const Color(0xFFD0D5DD),
+          size: 32,
+        ),
       ),
     );
   }
@@ -1001,25 +1144,26 @@ class _TrendsScreenState extends State<TrendsScreen> {
           Icon(
             icon,
             color: primaryBlue,
-            size: 27,
+            size: 22,
           ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 6),
           Text(
             label,
             style: const TextStyle(
               color: greyText,
-              fontSize: 13,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: valueColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -1030,25 +1174,25 @@ class _TrendsScreenState extends State<TrendsScreen> {
   Widget _insightCard(String insight) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 58,
-            width: 58,
+            height: 44,
+            width: 44,
             decoration: BoxDecoration(
               color: const Color(0xFFEAF3FF),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.emoji_events_outlined,
               color: primaryBlue,
-              size: 31,
+              size: 23,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1057,17 +1201,19 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   'Nice progress!',
                   style: TextStyle(
                     color: darkText,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
                 Text(
                   insight,
                   style: const TextStyle(
                     color: darkText,
-                    fontSize: 17,
+                    fontSize: 13.5,
                     height: 1.35,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -1084,7 +1230,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1093,11 +1239,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
             title,
             style: const TextStyle(
               color: darkText,
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
+              fontSize: 17.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           child,
         ],
       ),
@@ -1110,22 +1257,22 @@ class _TrendsScreenState extends State<TrendsScreen> {
   }) {
     final isSelected = _selectedTrend == label;
 
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(13),
       onTap: () {
         setState(() {
           _selectedTrend = label;
+          _focusedDate = DateTime.now();
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 13,
-        ),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected ? primaryBlue : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? primaryBlue : const Color(0xFFF9FBFE),
+          borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: isSelected ? primaryBlue : const Color(0xFFB8CAE9),
+            color: isSelected ? primaryBlue : const Color(0xFFD4DDEA),
           ),
         ),
         child: Row(
@@ -1133,15 +1280,15 @@ class _TrendsScreenState extends State<TrendsScreen> {
             Icon(
               icon,
               color: isSelected ? Colors.white : darkText,
-              size: 23,
+              size: 18,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: isSelected ? Colors.white : darkText,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -1153,50 +1300,48 @@ class _TrendsScreenState extends State<TrendsScreen> {
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(18),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x12000000),
-          blurRadius: 12,
-          offset: Offset(0, 5),
+          color: Color(0x0F000000),
+          blurRadius: 10,
+          offset: Offset(0, 4),
         ),
       ],
     );
   }
 }
 
-class _StepEntry {
-  final DateTime recordedAt;
-  final double steps;
+class _TrendSlot {
+  final DateTime start;
+  final DateTime end;
+  final String label;
 
-  const _StepEntry({
-    required this.recordedAt,
-    required this.steps,
+  const _TrendSlot({
+    required this.start,
+    required this.end,
+    required this.label,
   });
 }
 
-class _ActivityTrendPoint {
-  final String label;
-  final double value;
+class _ChangeInfo {
+  final String text;
+  final String badge;
+  final Color color;
+  final Color backgroundColor;
+  final IconData icon;
 
-  const _ActivityTrendPoint({
-    required this.label,
-    required this.value,
-  });
-}
-
-class _WorkoutTrendPoint {
-  final String label;
-  final double value;
-
-  const _WorkoutTrendPoint({
-    required this.label,
-    required this.value,
+  const _ChangeInfo({
+    required this.text,
+    required this.badge,
+    required this.color,
+    required this.backgroundColor,
+    required this.icon,
   });
 }
 
 class TrendChart extends StatelessWidget {
-  final List<double> values;
+  final List<double?> values;
   final List<String> labels;
   final String trendType;
 
@@ -1221,7 +1366,7 @@ class TrendChart extends StatelessWidget {
 }
 
 class _TrendChartPainter extends CustomPainter {
-  final List<double> values;
+  final List<double?> values;
   final List<String> labels;
   final String trendType;
 
@@ -1235,18 +1380,91 @@ class _TrendChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = const Color(0xFFDCE6F4)
-      ..strokeWidth = 1;
+    if (values.isEmpty) {
+      return;
+    }
+
+    final chartLeft = 2.0;
+    final chartRight = size.width - 38;
+    const chartTop = 8.0;
+    final chartBottom = size.height - 30;
+    final chartWidth = chartRight - chartLeft;
+    final chartHeight = chartBottom - chartTop;
+
+    final axisPaint = Paint()
+      ..color = const Color(0xFFE1E7F0)
+      ..strokeWidth = 1.2;
+
+    final tickPaint = Paint()
+      ..color = const Color(0xFFE1E7F0)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+
+    final axisValues = _axisValues();
+
+    for (final value in axisValues) {
+      final y = _yPosition(
+        value: value,
+        upper: axisValues.first,
+        lower: axisValues.last,
+        chartTop: chartTop,
+        chartHeight: chartHeight,
+      );
+
+      canvas.drawLine(
+        Offset(chartLeft, y),
+        Offset(chartRight, y),
+        axisPaint,
+      );
+
+      final labelPainter = TextPainter(
+        text: TextSpan(
+          text: _formatAxisLabel(value),
+          style: const TextStyle(
+            color: Color(0xFF667085),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      labelPainter.paint(
+        canvas,
+        Offset(chartRight + 8, y - labelPainter.height / 2),
+      );
+    }
+
+    final points = <Offset?>[];
+
+    for (int i = 0; i < values.length; i++) {
+      final horizontalPosition =
+          values.length == 1 ? 0.5 : i / (values.length - 1);
+      final x = chartLeft + (chartWidth * horizontalPosition);
+      final value = values[i];
+
+      if (value == null) {
+        points.add(null);
+        continue;
+      }
+
+      final y = _yPosition(
+        value: value,
+        upper: axisValues.first,
+        lower: axisValues.last,
+        chartTop: chartTop,
+        chartHeight: chartHeight,
+      );
+
+      points.add(Offset(x, y));
+    }
 
     final linePaint = Paint()
       ..color = primaryBlue
-      ..strokeWidth = 3.5
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
-
-    final fillPaint = Paint()
-      ..color = const Color(0x331555C0)
-      ..style = PaintingStyle.fill;
 
     final pointFillPaint = Paint()
       ..color = Colors.white
@@ -1254,163 +1472,195 @@ class _TrendChartPainter extends CustomPainter {
 
     final pointBorderPaint = Paint()
       ..color = primaryBlue
-      ..strokeWidth = 3
+      ..strokeWidth = 1.8
       ..style = PaintingStyle.stroke;
 
-    const left = 42.0;
-    const top = 16.0;
-    const bottomPadding = 42.0;
+    final realPoints = points.whereType<Offset>().toList();
 
-    final right = size.width - 12;
-    final bottom = size.height - bottomPadding;
-    final chartWidth = right - left;
-    final chartHeight = bottom - top;
+    if (realPoints.length > 1) {
+      final linePath = Path()..moveTo(realPoints.first.dx, realPoints.first.dy);
 
-    for (int i = 0; i < 5; i++) {
-      final y = top + (chartHeight / 4) * i;
-      canvas.drawLine(Offset(left, y), Offset(right, y), gridPaint);
-    }
-
-    canvas.drawLine(Offset(left, top), Offset(left, bottom), gridPaint);
-    canvas.drawLine(Offset(left, bottom), Offset(right, bottom), gridPaint);
-
-    final minimum = values.reduce((a, b) => a < b ? a : b);
-    final maximum = values.reduce((a, b) => a > b ? a : b);
-
-    final safeRange = maximum == minimum ? 1.0 : maximum - minimum;
-
-    final points = <Offset>[];
-
-    for (int i = 0; i < values.length; i++) {
-      final horizontalPosition =
-          values.length == 1 ? 0.5 : i / (values.length - 1);
-
-      final x = left + (chartWidth * horizontalPosition);
-      final normalizedValue = (values[i] - minimum) / safeRange;
-      final y = bottom - (normalizedValue * chartHeight * 0.78) - 20;
-
-      points.add(Offset(x, y));
-    }
-
-    final fillPath = Path()
-      ..moveTo(points.first.dx, bottom)
-      ..lineTo(points.first.dx, points.first.dy);
-
-    for (int i = 1; i < points.length; i++) {
-      fillPath.lineTo(points[i].dx, points[i].dy);
-    }
-
-    fillPath
-      ..lineTo(points.last.dx, bottom)
-      ..close();
-
-    canvas.drawPath(fillPath, fillPaint);
-
-    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
-
-    for (int i = 1; i < points.length; i++) {
-      linePath.lineTo(points[i].dx, points[i].dy);
-    }
-
-    canvas.drawPath(linePath, linePaint);
-
-    for (final point in points) {
-      canvas.drawCircle(point, 6, pointFillPaint);
-      canvas.drawCircle(point, 6, pointBorderPaint);
-    }
-
-    for (int i = 0; i < labels.length; i++) {
-      _drawCenteredLabel(
-        canvas,
-        labels[i],
-        points[i].dx,
-        bottom + 12,
-      );
-    }
-
-    _drawYAxisLabels(
-      canvas,
-      left,
-      top,
-      bottom,
-      minimum,
-      maximum,
-    );
-  }
-
-  void _drawYAxisLabels(
-    Canvas canvas,
-    double left,
-    double top,
-    double bottom,
-    double minimum,
-    double maximum,
-  ) {
-    for (int i = 0; i < 5; i++) {
-      final ratio = i / 4;
-      final value = maximum - ((maximum - minimum) * ratio);
-
-      String label;
-
-      if (trendType == 'Weight') {
-        label = '${value.toStringAsFixed(0)} kg';
-      } else if (trendType == 'BMI') {
-        label = value.toStringAsFixed(1);
-      } else if (trendType == 'Steps / Activity') {
-        if (value < 1000) {
-          label = value.toStringAsFixed(0);
-        } else {
-          final thousands = value / 1000;
-
-          label = thousands % 1 == 0
-              ? '${thousands.toInt()}k'
-              : '${thousands.toStringAsFixed(1)}k';
-        }
-      } else {
-        label = value.toStringAsFixed(0);
+      for (int i = 1; i < realPoints.length; i++) {
+        linePath.lineTo(realPoints[i].dx, realPoints[i].dy);
       }
 
-      final y = top + ((bottom - top) * ratio);
+      canvas.drawPath(linePath, linePaint);
+    }
 
-      final painter = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(
-            color: Color(0xFF526176),
-            fontSize: 11,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
+    for (final point in realPoints) {
+      canvas.drawCircle(point, 3.1, pointFillPaint);
+      canvas.drawCircle(point, 3.1, pointBorderPaint);
+    }
 
-      painter.paint(
+    final labelIndexes = _visibleLabelIndexes();
+
+    for (final index in labelIndexes) {
+      if (index < 0 || index >= labels.length) {
+        continue;
+      }
+
+      final horizontalPosition =
+          labels.length == 1 ? 0.5 : index / (labels.length - 1);
+      final x = chartLeft + (chartWidth * horizontalPosition);
+
+      canvas.drawLine(
+        Offset(x, chartBottom),
+        Offset(x, chartBottom + 5),
+        tickPaint,
+      );
+
+      _drawBottomLabel(
         canvas,
-        Offset(left - painter.width - 8, y - (painter.height / 2)),
+        labels[index],
+        x,
+        chartBottom + 10,
+        isFirst: index == 0,
+        isLast: index == labels.length - 1,
       );
     }
   }
 
-  void _drawCenteredLabel(
+  List<int> _visibleLabelIndexes() {
+    if (labels.length <= 3) {
+      return List.generate(labels.length, (index) => index);
+    }
+
+    return [
+      0,
+      labels.length ~/ 2,
+      labels.length - 1,
+    ];
+  }
+
+  List<double> _axisValues() {
+    final realValues = values.whereType<double>().toList();
+
+    if (realValues.isEmpty) {
+      if (trendType == 'Weight') {
+        return const [77, 75, 73];
+      }
+
+      if (trendType == 'BMI') {
+        return const [30, 25, 20];
+      }
+
+      return const [10, 5, 0];
+    }
+
+    var minimum = realValues.reduce((a, b) => a < b ? a : b);
+    var maximum = realValues.reduce((a, b) => a > b ? a : b);
+
+    if (trendType == 'Workouts' || trendType == 'Steps / Activity') {
+      minimum = 0;
+    }
+
+    double lower;
+    double upper;
+
+    if (trendType == 'Weight') {
+      final range = maximum - minimum;
+
+      if (range <= 2) {
+        lower = (minimum - 1.5).floorToDouble();
+        upper = (maximum + 1.5).ceilToDouble();
+      } else {
+        lower = (minimum - 1).floorToDouble();
+        upper = (maximum + 1).ceilToDouble();
+      }
+    } else if (trendType == 'BMI') {
+      lower = minimum - 0.8;
+      upper = maximum + 0.8;
+    } else {
+      lower = 0;
+      upper = maximum <= 0 ? 5 : maximum * 1.20;
+    }
+
+    if (upper <= lower) {
+      upper = lower + 1;
+    }
+
+    final middle = (upper + lower) / 2;
+
+    return [upper, middle, lower];
+  }
+
+  double _yPosition({
+    required double value,
+    required double upper,
+    required double lower,
+    required double chartTop,
+    required double chartHeight,
+  }) {
+    final range = upper - lower;
+
+    if (range == 0) {
+      return chartTop + chartHeight / 2;
+    }
+
+    final normalized = (upper - value) / range;
+
+    return chartTop + (chartHeight * normalized);
+  }
+
+  String _formatAxisLabel(double value) {
+    if (trendType == 'Weight') {
+      if (value % 1 == 0) {
+        return value.toInt().toString();
+      }
+
+      return value.toStringAsFixed(1);
+    }
+
+    if (trendType == 'BMI') {
+      return value.toStringAsFixed(1);
+    }
+
+    if (trendType == 'Steps / Activity') {
+      if (value < 1000) {
+        return value.toStringAsFixed(0);
+      }
+
+      final thousands = value / 1000;
+
+      return thousands % 1 == 0
+          ? '${thousands.toInt()}k'
+          : '${thousands.toStringAsFixed(1)}k';
+    }
+
+    return value.toStringAsFixed(0);
+  }
+
+  void _drawBottomLabel(
     Canvas canvas,
     String text,
-    double centerX,
-    double y,
-  ) {
+    double x,
+    double y, {
+    required bool isFirst,
+    required bool isLast,
+  }) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: const TextStyle(
-          color: Color(0xFF0B1B4D),
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
+        style: TextStyle(
+          color: isFirst ? const Color(0xFF0B1B4D) : const Color(0xFF667085),
+          fontSize: 11.5,
+          fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
+    double labelX = x - painter.width / 2;
+
+    if (isFirst) {
+      labelX = x;
+    } else if (isLast) {
+      labelX = x - painter.width;
+    }
+
     painter.paint(
       canvas,
-      Offset(centerX - (painter.width / 2), y),
+      Offset(labelX, y),
     );
   }
 
