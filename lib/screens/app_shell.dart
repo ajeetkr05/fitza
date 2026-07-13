@@ -4,6 +4,7 @@ import '../widgets/app_bottom_navigation.dart';
 import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
 import 'progress/progress_dashboard_screen.dart';
+import 'workout/workout_home_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -28,7 +29,10 @@ class _AppShellState extends State<AppShell> {
         selectedIndex: _selectedIndex,
         onTabChanged: _changeTab,
       ),
-      _placeholderScreen('Workout'),
+      WorkoutHomeScreen(
+        selectedIndex: _selectedIndex,
+        onTabChanged: _changeTab,
+      ),
       _placeholderScreen('Nutrition'),
       ProgressDashboardScreen(
         selectedIndex: _selectedIndex,
