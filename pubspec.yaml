@@ -38,6 +38,8 @@ dependencies:
   provider: ^6.1.5+1
   cloud_firestore: ^6.6.0
   firebase_auth: ^6.5.4
+  image_picker: ^1.1.2
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +66,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -94,4 +97,4 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/icon.png"
+  image_path: "assets/icon/icon_light.png"

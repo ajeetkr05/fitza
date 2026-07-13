@@ -54,6 +54,11 @@ class ProfileFirestoreService {
     required String workoutPreference,
     required String dietaryPreference,
     required String fitnessExperience,
+    required double targetCalories,
+    required double targetProtein,
+    required double targetCarbs,
+    required double targetFat,
+    required int targetWaterMl,
   }) async {
     final cleanedDisplayName = displayName.trim();
     final now = DateTime.now();
@@ -79,6 +84,11 @@ class ProfileFirestoreService {
         'notificationsEnabled': true,
         'workoutRemindersEnabled': true,
         'darkModeEnabled': false,
+        'targetCalories': targetCalories,
+        'targetProtein': targetProtein,
+        'targetCarbs': targetCarbs,
+        'targetFat': targetFat,
+        'targetWaterMl': targetWaterMl,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -105,6 +115,31 @@ class ProfileFirestoreService {
     await _userDocument.set(
       {
         'profileSetupCompleted': true,
+        'targetCalories': 2200.0,
+        'targetProtein': 120.0,
+        'targetCarbs': 275.0,
+        'targetFat': 73.0,
+        'targetWaterMl': 3000,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> updateProfileTargets({
+    required double targetCalories,
+    required double targetProtein,
+    required double targetCarbs,
+    required double targetFat,
+    required int targetWaterMl,
+  }) async {
+    await _userDocument.set(
+      {
+        'targetCalories': targetCalories,
+        'targetProtein': targetProtein,
+        'targetCarbs': targetCarbs,
+        'targetFat': targetFat,
+        'targetWaterMl': targetWaterMl,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),

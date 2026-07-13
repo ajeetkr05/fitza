@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'Nutrition/nutrition_home_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
@@ -29,7 +29,10 @@ class _AppShellState extends State<AppShell> {
         onTabChanged: _changeTab,
       ),
       _placeholderScreen('Workout'),
-      _placeholderScreen('Nutrition'),
+      NutritionHomeScreen(
+        selectedIndex: _selectedIndex,
+        onTabChanged: _changeTab,
+      ), 
       ProgressDashboardScreen(
         selectedIndex: _selectedIndex,
         onTabChanged: _changeTab,
