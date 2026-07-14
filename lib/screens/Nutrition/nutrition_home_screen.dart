@@ -150,8 +150,8 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      FitzaHeaderIconButton(
-                                        icon: Icons.history_rounded,
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(12),
                                         onTap: () {
                                           Navigator.push(
                                             context,
@@ -160,6 +160,40 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                                             ),
                                           );
                                         },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: const Color(0xFF1555C0), width: 1.5),
+                                            boxShadow: const [
+                                              BoxShadow(
+                                                color: Color(0x0A000000),
+                                                blurRadius: 8,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.bar_chart_rounded,
+                                                color: Color(0xFF1555C0),
+                                                size: 18,
+                                              ),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Progress',
+                                                style: TextStyle(
+                                                  color: Color(0xFF1555C0),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -464,7 +498,7 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${(currentMl / 1000.0).toStringAsFixed(1)} L / ${(targetWaterMl / 1000.0).toStringAsFixed(0)} L',
+                      '${(currentMl / 1000.0).toStringAsFixed(currentMl % 1000 == 0 ? 0 : 1)} L / ${(targetWaterMl / 1000.0).toStringAsFixed(targetWaterMl % 1000 == 0 ? 0 : 1)} L',
                       style: const TextStyle(color: greyText, fontSize: 12),
                     ),
                   ],
@@ -598,50 +632,53 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _quickActionButton(
-              icon: Icons.restaurant_outlined,
-              label: 'Add Meal',
-              color: primaryBlue,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddMealScreen(
-                      remainingCalories: remainingCals,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _quickActionButton(
+                icon: Icons.restaurant_outlined,
+                label: 'Add Meal',
+                color: primaryBlue,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddMealScreen(
+                        remainingCalories: remainingCals,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _quickActionButton(
-              icon: Icons.auto_awesome_rounded,
-              label: 'AI Recommendation',
-              color: const Color(0xFFD97706),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FoodRecommendationScreen(
-                      remainingCalories: remainingCals,
-                      remainingProtein: remainingP,
-                      remainingCarbs: remainingC,
-                      remainingFat: remainingF,
-                      mealsRemaining: 4 - completedMealsCount,
-                      goal: goal,
-                      dietaryPreference: dietaryPref,
+            const SizedBox(width: 12),
+            Expanded(
+              child: _quickActionButton(
+                icon: Icons.auto_awesome_rounded,
+                label: 'AI Recommendation',
+                color: const Color(0xFFD97706),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FoodRecommendationScreen(
+                        remainingCalories: remainingCals,
+                        remainingProtein: remainingP,
+                        remainingCarbs: remainingC,
+                        remainingFat: remainingF,
+                        mealsRemaining: 4 - completedMealsCount,
+                        goal: goal,
+                        dietaryPreference: dietaryPref,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -652,30 +689,37 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Icon(icon, color: color, size: 24),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

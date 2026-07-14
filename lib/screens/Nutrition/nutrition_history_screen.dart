@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/Nutrition/meal_entry.dart';
 import '../../models/Nutrition/water_log.dart';
+import '../../models/profile/user_profile.dart';
 import '../../services/Nutrition/nutrition_firestore_service.dart';
+import '../../services/profile/profile_firestore_service.dart';
 
 class NutritionHistoryScreen extends StatefulWidget {
   const NutritionHistoryScreen({super.key});
@@ -22,11 +24,11 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
   static const Color background = Color(0xFFF5F5F5);
 
   // Target values
-  static const double targetCalories = 2200.0;
-  static const double targetProtein = 120.0;
-  static const double targetCarbs = 275.0;
-  static const double targetFat = 73.0;
-  static const double targetWaterL = 3.0;
+  double targetCalories = 2200.0;
+  double targetProtein = 120.0;
+  double targetCarbs = 275.0;
+  double targetFat = 73.0;
+  double targetWaterL = 3.0;
 
   @override
   void initState() {
@@ -69,88 +71,102 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: background,
-      appBar: AppBar(
-        title: const Text(
-          'Nutrition History',
-          style: TextStyle(
-            color: darkText,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: darkText,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            child: Row(
-              children: [
-                _tabButton(0, 'Daily'),
-                _tabButton(1, 'Weekly'),
-                _tabButton(2, 'Monthly'),
-              ],
+    return StreamBuilder<UserProfile>(
+      stream: ProfileFirestoreService.instance.getProfileStream(),
+      builder: (context, profileSnapshot) {
+        final profile = profileSnapshot.data;
+        if (profile != null) {
+          targetCalories = profile.targetCalories ?? 2200.0;
+          targetProtein = profile.targetProtein ?? 120.0;
+          targetCarbs = profile.targetCarbs ?? 275.0;
+          targetFat = profile.targetFat ?? 73.0;
+          targetWaterL = (profile.targetWaterMl ?? 3000) / 1000.0;
+        }
+
+        return Scaffold(
+          backgroundColor: background,
+          appBar: AppBar(
+            title: const Text(
+              'Nutrition History',
+              style: TextStyle(
+                color: darkText,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            backgroundColor: Colors.white,
+            foregroundColor: darkText,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _calorieChartCard(),
-                        const SizedBox(height: 18),
-                        const Text(
-                          'Averages & Summary',
-                          style: TextStyle(
-                            color: darkText,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _metricsSummaryCard(),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: primaryBlue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                side: const BorderSide(color: primaryBlue, width: 1.5),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: const Text(
-                              'Return Home',
+          body: Column(
+            children: [
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                child: Row(
+                  children: [
+                    _tabButton(0, 'Daily'),
+                    _tabButton(1, 'Weekly'),
+                    _tabButton(2, 'Monthly'),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _calorieChartCard(),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Averages & Summary',
                               style: TextStyle(
-                                fontSize: 16,
+                                color: darkText,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 12),
+                            _metricsSummaryCard(),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: primaryBlue,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    side: const BorderSide(color: primaryBlue, width: 1.5),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  'Return Home',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -246,23 +262,27 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Calories Over Time',
-                style: TextStyle(
-                  color: darkText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              const Expanded(
+                child: Text(
+                  'Calories Over Time',
+                  style: TextStyle(
+                    color: darkText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE0EAFF),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
-                  'Target: 2200 kcal',
-                  style: TextStyle(
+                child: Text(
+                  'Target: ${targetCalories.toStringAsFixed(0)} kcal',
+                  style: const TextStyle(
                     color: primaryBlue,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -353,7 +373,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           const Divider(height: 24, color: Color(0xFFF2F4F7)),
           _metricRow('Fats', '${avgF.toStringAsFixed(1)} g', '/ $targetFat g', avgF / targetFat),
           const Divider(height: 24, color: Color(0xFFF2F4F7)),
-          _metricRow('Water Intake', '${avgWaterL.toStringAsFixed(2)} L', '/ $targetWaterL L', avgWaterL / targetWaterL),
+          _metricRow('Water Intake', '${avgWaterL.toStringAsFixed(avgWaterL % 1 == 0 ? 0 : 1)} L', '/ ${targetWaterL % 1 == 0 ? targetWaterL.toStringAsFixed(0) : targetWaterL.toStringAsFixed(1)} L', avgWaterL / targetWaterL),
           const Divider(height: 24, color: Color(0xFFF2F4F7)),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -483,8 +503,15 @@ class _CalorieBarChartPainter extends CustomPainter {
     );
 
     int divisions = 3;
+    // Calculate step size rounded to the nearest multiple of 50
+    double rawStep = maxVal / divisions;
+    double step = (rawStep / 50.0).roundToDouble() * 50.0;
+    if (step < 50.0) step = 50.0;
+    // Align maxVal exactly with divisions
+    maxVal = step * divisions;
+
     for (int i = 0; i <= divisions; i++) {
-      final yVal = (maxVal / divisions) * i;
+      final yVal = step * i;
       final y = paddingTop + chartHeight - (yVal / maxVal * chartHeight);
       
       canvas.drawLine(
