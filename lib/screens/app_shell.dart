@@ -4,6 +4,7 @@ import '../main.dart';
 import '../widgets/app_bottom_navigation.dart';
 import '../widgets/fitza_header.dart';
 import 'home/home_screen.dart';
+import 'Nutrition/nutrition_home_screen.dart';
 import 'profile/profile_screen.dart';
 import 'progress/progress_dashboard_screen.dart';
 
@@ -31,7 +32,10 @@ class _AppShellState extends State<AppShell> {
         onTabChanged: _changeTab,
       ),
       _placeholderScreen('Workout'),
-      _placeholderScreen('Nutrition'),
+      NutritionHomeScreen(
+        selectedIndex: _selectedIndex,
+        onTabChanged: _changeTab,
+      ),
       ProgressDashboardScreen(
         selectedIndex: _selectedIndex,
         onTabChanged: _changeTab,
@@ -66,9 +70,7 @@ class _AppShellState extends State<AppShell> {
                   icon: Icons.notifications_none_rounded,
                 ),
               ),
-
               const SizedBox(height: 22),
-
               Text(
                 title,
                 style: TextStyle(
@@ -78,9 +80,7 @@ class _AppShellState extends State<AppShell> {
                   letterSpacing: -0.4,
                 ),
               ),
-
               const SizedBox(height: 3),
-
               Text(
                 '$title section is under development.',
                 style: TextStyle(
@@ -89,9 +89,7 @@ class _AppShellState extends State<AppShell> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-
               const SizedBox(height: 18),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -125,9 +123,7 @@ class _AppShellState extends State<AppShell> {
                         size: 34,
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
                     Text(
                       '$title Screen Coming Soon',
                       textAlign: TextAlign.center,
@@ -138,9 +134,7 @@ class _AppShellState extends State<AppShell> {
                         letterSpacing: -0.2,
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
                     Text(
                       title == 'Workout'
                           ? 'Your workout plans and exercise recommendations will appear here.'

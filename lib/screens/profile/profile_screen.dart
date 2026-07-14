@@ -497,10 +497,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ageController.dispose();
   }
 
-  void _showComingSoon(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$title will be added later.'),
+Future<void> _showEditTargetsSheet(UserProfile profile) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => _EditTargetsSheet(profile: profile),
+  );
+
+  if (result == true && mounted) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Nutrition targets updated successfully.'),
+        backgroundColor: successGreen,
+      ),
+    );
+  }
+}
+
+void _showComingSoon(String title) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('$title will be added later.'),
+    ),
+  );
+}
       ),
     );
   }
@@ -653,26 +676,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ],
                           ),
+const SizedBox(height: 16),
 
-                          const SizedBox(height: 16),
-
-                          _sectionCard(
-                            title: 'Profile Actions',
-                            children: [
-                              _navigationRow(
-                                icon: Icons.person_outline_rounded,
-                                title: 'Edit Profile',
-                                subtitle: 'Update your basic profile details',
-                                onTap: () => _showEditProfileSheet(profile),
-                              ),
-                              _divider(),
-                              _navigationRow(
-                                icon: Icons.track_changes_rounded,
-                                title: 'Update Fitness Goal',
-                                subtitle: 'Change your goal and activity level',
-                                onTap: () => _showEditProfileSheet(
-                                  profile,
-                                  focusGoal: true,
+_sectionCard(
+  title: 'Profile Actions',
+  children: [
+    _navigationRow(
+      icon: Icons.person_outline_rounded,
+      title: 'Edit Profile',
+      subtitle: 'Update your basic profile details',
+      onTap: () => _showEditProfileSheet(profile),
+    ),
+    _divider(),
+    _navigationRow(
+      icon: Icons.track_changes_rounded,
+      title: 'Update Fitness Goal',
+      subtitle: 'Change your goal and activity level',
+      onTap: () => _showEditProfileSheet(
+        profile,
+        focusGoal: true,
+      ),
+    ),
+    _divider(),
+    _navigationRow(
+      icon: Icons.local_fire_department_outlined,
+      title: 'Nutrition Targets',
+      subtitle: 'Set calories, macros and water goals',
+      onTap: () => _showEditTargetsSheet(profile),
+    ),
+    _divider(),
+    _navigationRow(
+      icon: Icons.fitness_center_outlined,
+      title: 'Workout History',
+      subtitle: 'View your saved workout sessions',
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ExerciseHistoryScreen(),
+          ),
+        );
+      },
+    ),
+    _divider(),
+    _navigationRow(
+      icon: Icons.emoji_events_outlined,
+      title: 'View Achievements',
+      subtitle: 'Badges and milestones',
+      onTap: () => _showComingSoon('Achievements'),
+    ),
+    _divider(),
+    _navigationRow(
+      icon: Icons.leaderboard_outlined,
+      title: 'View Personal Records',
+      subtitle: 'Best lifts and workout records',
+      onTap: () => _showComingSoon('Personal records'),
+    ),
+  ],
+),
                                 ),
                               ),
                               _divider(),
@@ -1245,6 +1306,362 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+class _EditTargetsSheet extends StatefulWidget {
+  final UserProfile profile;
+
+  const _EditTargetsSheet({
+    required this.profile,
+  });
+
+  @override
+  State<_EditTargetsSheet> createState() => _EditTargetsSheetState();
+}
+
+class _EditTargetsSheetState extends State<_EditTargetsSheet> {
+  final _formKey = GlobalKey<FormState>();
+
+  late final TextEditingController _caloriesController;
+  late final TextEditingController _proteinController;
+  late final TextEditingController _carbsController;
+  late final TextEditingController _fatController;
+  late final TextEditingController _waterController;
+
+  bool _isSaving = false;
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _caloriesController = TextEditingController(
+      text: (widget.profile.targetCalories ?? 2200.0).toStringAsFixed(0),
+    );
+
+    _proteinController = TextEditingController(
+      text: (widget.profile.targetProtein ?? 120.0).toStringAsFixed(0),
+    );
+
+    _carbsController = TextEditingController(
+      text: (widget.profile.targetCarbs ?? 275.0).toStringAsFixed(0),
+    );
+
+    _fatController = TextEditingController(
+      text: (widget.profile.targetFat ?? 73.0).toStringAsFixed(0),
+    );
+
+    _waterController = TextEditingController(
+      text: (widget.profile.targetWaterMl ?? 3000).toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _caloriesController.dispose();
+    _proteinController.dispose();
+    _carbsController.dispose();
+    _fatController.dispose();
+    _waterController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    try {
+      await ProfileFirestoreService.instance.updateProfileTargets(
+        targetCalories: double.parse(_caloriesController.text.trim()),
+        targetProtein: double.parse(_proteinController.text.trim()),
+        targetCarbs: double.parse(_carbsController.text.trim()),
+        targetFat: double.parse(_fatController.text.trim()),
+        targetWaterMl: int.parse(_waterController.text.trim()),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save targets: $error'),
+        ),
+      );
+    }
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    required IconData icon,
+  }) {
+    final fitzaColors = _colors(context);
+
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: fitzaColors.secondaryText,
+        fontWeight: FontWeight.w600,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: fitzaColors.primaryBlue,
+      ),
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.primaryBlue,
+          width: 1.7,
+        ),
+      ),
+    );
+  }
+
+  String? _validateDouble(String? value, String fieldName) {
+    final text = value?.trim() ?? '';
+
+    if (text.isEmpty) {
+      return 'Enter $fieldName.';
+    }
+
+    final number = double.tryParse(text);
+
+    if (number == null || number < 0) {
+      return 'Enter a valid $fieldName.';
+    }
+
+    return null;
+  }
+
+  String? _validateInt(String? value, String fieldName) {
+    final text = value?.trim() ?? '';
+
+    if (text.isEmpty) {
+      return 'Enter $fieldName.';
+    }
+
+    final number = int.tryParse(text);
+
+    if (number == null || number < 0) {
+      return 'Enter a valid $fieldName.';
+    }
+
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: fitzaColors.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(26),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      height: 4,
+                      width: 44,
+                      decoration: BoxDecoration(
+                        color: fitzaColors.border,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Edit Nutrition Targets',
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _caloriesController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: _inputDecoration(
+                      label: 'Calorie Target (kcal)',
+                      icon: Icons.local_fire_department_outlined,
+                    ),
+                    validator: (value) => _validateDouble(
+                      value,
+                      'calorie target',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _proteinController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: _inputDecoration(
+                      label: 'Protein Target (g)',
+                      icon: Icons.fitness_center_outlined,
+                    ),
+                    validator: (value) => _validateDouble(
+                      value,
+                      'protein target',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _carbsController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: _inputDecoration(
+                      label: 'Carbohydrate Target (g)',
+                      icon: Icons.grain_outlined,
+                    ),
+                    validator: (value) => _validateDouble(
+                      value,
+                      'carbohydrate target',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _fatController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: _inputDecoration(
+                      label: 'Fat Target (g)',
+                      icon: Icons.opacity_outlined,
+                    ),
+                    validator: (value) => _validateDouble(
+                      value,
+                      'fat target',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _waterController,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: _inputDecoration(
+                      label: 'Water Intake Target (ml)',
+                      icon: Icons.water_drop_outlined,
+                    ),
+                    validator: (value) => _validateInt(
+                      value,
+                      'water target',
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: fitzaColors.primaryBlue,
+                        foregroundColor: fitzaColors.textOnBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: _isSaving
+                          ? SizedBox(
+                              height: 23,
+                              width: 23,
+                              child: CircularProgressIndicator(
+                                color: fitzaColors.textOnBlue,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              'Save Targets',
+                              style: TextStyle(
+                                color: fitzaColors.textOnBlue,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileInfoItem {
   final IconData icon;
   final String value;
@@ -1257,4 +1674,4 @@ class _ProfileInfoItem {
     required this.label,
     required this.color,
   });
-}
+}}
