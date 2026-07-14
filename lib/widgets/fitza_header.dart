@@ -1,69 +1,103 @@
 import 'package:flutter/material.dart';
 
+import '../main.dart';
+
 class FitzaHeader extends StatelessWidget {
   final String? centerTitle;
   final Widget? trailing;
+  final bool showBrand;
 
   const FitzaHeader({
     super.key,
     this.centerTitle,
     this.trailing,
+    this.showBrand = true,
   });
-
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/icon/icon_light.png',
-              height: 58,
-              width: 58,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(
-                  Icons.bolt_rounded,
-                  color: primaryBlue,
-                  size: 44,
-                );
-              },
-            ),
-            const SizedBox(width: 6),
-            const Text(
-              'Fitza',
-              style: TextStyle(
-                color: darkText,
-                fontSize: 30,
-                fontWeight: FontWeight.w500,
-                fontStyle: FontStyle.italic,
-                letterSpacing: -0.8,
-                height: 1.0,
-              ),
-            ),
-          ],
-        ),
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-        const Spacer(),
+    return SizedBox(
+      height: 50,
+      child: Row(
+        children: [
+          if (showBrand) _FitzaBrand(isDarkMode: isDarkMode),
 
-        if (centerTitle != null) ...[
-          Text(
-            centerTitle!,
-            style: const TextStyle(
-              color: darkText,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-            ),
+          if (showBrand) const SizedBox(width: 10),
+
+          Expanded(
+            child: centerTitle == null
+                ? const SizedBox.shrink()
+                : Text(
+                    centerTitle!,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontSize: 23,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
           ),
-          const Spacer(),
-        ],
 
-        if (trailing != null) trailing!,
+          if (trailing != null)
+            trailing!
+          else
+            const SizedBox(
+              height: 44,
+              width: 44,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FitzaBrand extends StatelessWidget {
+  final bool isDarkMode;
+
+  const _FitzaBrand({
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          isDarkMode
+              ? 'assets/icon/icon_dark.png'
+              : 'assets/icon/icon_light.png',
+          height: 40,
+          width: 40,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.bolt_rounded,
+              color: fitzaColors.primaryBlue,
+              size: 34,
+            );
+          },
+        ),
+        const SizedBox(width: 7),
+        Text(
+          'Fitza',
+          style: TextStyle(
+            color: fitzaColors.primaryText,
+            fontSize: 27,
+            fontWeight: FontWeight.w700,
+            fontStyle: FontStyle.italic,
+            letterSpacing: -0.7,
+            height: 1.0,
+          ),
+        ),
       ],
     );
   }
@@ -79,30 +113,36 @@ class FitzaHeaderIconButton extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color darkText = Color(0xFF0B1B4D);
-
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(15),
       onTap: onTap,
       child: Container(
-        height: 42,
-        width: 42,
+        height: 44,
+        width: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
+          color: fitzaColors.surface,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: fitzaColors.border,
+          ),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x10000000),
+              color: isDarkMode
+                  ? const Color(0x33000000)
+                  : const Color(0x0F000000),
               blurRadius: 10,
-              offset: Offset(0, 3),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Icon(
           icon,
-          color: darkText,
+          color: fitzaColors.primaryText,
           size: 23,
         ),
       ),

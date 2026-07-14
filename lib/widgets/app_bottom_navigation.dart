@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../main.dart';
+
 class AppBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -12,15 +14,16 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF1555C0);
-    const inactiveColor = Color(0xFF6B7280);
+    final fitzaColors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = fitzaColors.primaryBlue;
+    final inactiveColor = fitzaColors.secondaryText;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: fitzaColors.surface,
         border: Border(
           top: BorderSide(
-            color: Color(0xFFE5E7EB),
+            color: fitzaColors.border,
           ),
         ),
       ),
@@ -112,8 +115,7 @@ class AppBottomNavigation extends StatelessWidget {
               style: TextStyle(
                 color: itemColor,
                 fontSize: 12,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],

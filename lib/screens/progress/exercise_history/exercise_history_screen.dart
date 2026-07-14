@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../models/progress/workout_entry.dart';
 import '../../../services/progress/workout_firestore_service.dart';
 import 'workout_session_detail_screen.dart';
@@ -14,8 +15,6 @@ class ExerciseHistoryScreen extends StatefulWidget {
 
 class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
   static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
   static const Color successGreen = Color(0xFF2E7D32);
 
   final TextEditingController _searchController = TextEditingController();
@@ -26,6 +25,46 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.10);
+  }
+
+  num? _numberValue(dynamic value) {
+    if (value is num) {
+      return value;
+    }
+
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  num? _firstNumber(Map<String, dynamic> exercise, List<String> keys) {
+    for (final key in keys) {
+      final value = _numberValue(exercise[key]);
+
+      if (value != null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  String _formatNumber(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
   }
 
   List<WorkoutEntry> _filteredWorkouts(List<WorkoutEntry> workouts) {
@@ -104,32 +143,19 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     return '${difference ~/ 7} weeks ago';
   }
 
-  num? _numberValue(dynamic value) {
-    if (value is num) {
-      return value;
-    }
-
-    return double.tryParse(value?.toString() ?? '');
-  }
-
-  String _formatNumber(num value) {
-    if (value % 1 == 0) {
-      return value.toInt().toString();
-    }
-
-    return value.toStringAsFixed(1);
-  }
-
   String _cardioWorkoutDetails(WorkoutEntry workout) {
     final parts = <String>['Cardio'];
 
     if (workout.exercises.isNotEmpty) {
       final exercise = workout.exercises.first;
 
-      final distance = _numberValue(exercise['distanceKm']);
-      final duration = _numberValue(exercise['durationMinutes']);
-      final steps = _numberValue(exercise['steps']);
-      final calories = _numberValue(exercise['caloriesBurned']);
+      final distance = _firstNumber(exercise, ['distanceKm', 'distance']);
+      final duration = _firstNumber(exercise, ['durationMinutes', 'reps']);
+      final steps = _firstNumber(exercise, ['steps']);
+      final calories = _firstNumber(
+        exercise,
+        ['caloriesBurned', 'calories'],
+      );
 
       if (distance != null) {
         parts.add('${_formatNumber(distance)} km');
@@ -200,8 +226,10 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -211,18 +239,18 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_rounded,
-                      color: darkText,
+                      color: fitzaColors.primaryText,
                       size: 29,
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Workout History',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: darkText,
+                        color: fitzaColors.primaryText,
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -243,32 +271,12 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                     TextField(
                       controller: _searchController,
                       onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Search workouts or exercises',
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: greyText,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 13,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD4DDEA),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: primaryBlue,
-                            width: 1.7,
-                          ),
-                        ),
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                       ),
+                      decoration: _searchInputDecoration(context),
                     ),
 
                     const SizedBox(height: 16),
@@ -290,10 +298,10 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
 
                     const SizedBox(height: 22),
 
-                    const Text(
+                    Text(
                       'Recent Workouts',
                       style: TextStyle(
-                        color: darkText,
+                        color: fitzaColors.primaryText,
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
@@ -318,7 +326,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                           return _statusCard(
                             icon: Icons.hourglass_top_rounded,
                             message: 'Loading your saved workouts...',
-                            iconColor: primaryBlue,
+                            iconColor: fitzaColors.primaryBlue,
                             isLoading: true,
                           );
                         }
@@ -331,16 +339,15 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                             icon: Icons.fitness_center_outlined,
                             message:
                                 'Save a workout to see your workout history.',
-                            iconColor: greyText,
+                            iconColor: fitzaColors.secondaryText,
                           );
                         }
 
                         if (workouts.isEmpty) {
                           return _statusCard(
                             icon: Icons.search_off_outlined,
-                            message:
-                                'No $_selectedCategory workouts found.',
-                            iconColor: greyText,
+                            message: 'No $_selectedCategory workouts found.',
+                            iconColor: fitzaColors.secondaryText,
                           );
                         }
 
@@ -368,6 +375,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
   }
 
   Widget _categoryChip(String label) {
+    final fitzaColors = _colors(context);
     final isSelected = _selectedCategory == label;
     final color = _categoryColor(label);
 
@@ -384,24 +392,26 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? color : Colors.white,
+          color: isSelected ? color : fitzaColors.surface,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-            color: isSelected ? color : const Color(0xFFE1E7F0),
+            color: isSelected ? color : fitzaColors.border,
           ),
         ),
         child: Row(
           children: [
             Icon(
               _categoryIcon(label),
-              color: isSelected ? Colors.white : color,
+              color: isSelected ? fitzaColors.textOnBlue : color,
               size: 19,
             ),
             const SizedBox(width: 7),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : darkText,
+                color: isSelected
+                    ? fitzaColors.textOnBlue
+                    : fitzaColors.primaryText,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -413,10 +423,11 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
   }
 
   Widget _workoutCard(WorkoutEntry workout) {
+    final fitzaColors = _colors(context);
     final color = _categoryColor(workout.workoutType);
 
     return Material(
-      color: Colors.white,
+      color: fitzaColors.surface,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -425,11 +436,13 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                color: Color(0x0F000000),
+                color: _isDark(context)
+                    ? const Color(0x33000000)
+                    : const Color(0x0F000000),
                 blurRadius: 10,
-                offset: Offset(0, 4),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -437,7 +450,7 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: color.withValues(alpha: 0.10),
+                backgroundColor: _softBackground(context, color),
                 child: Icon(
                   _categoryIcon(workout.workoutType),
                   color: color,
@@ -453,8 +466,8 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                       workout.workoutName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: darkText,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
                         fontSize: 16.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
@@ -465,8 +478,8 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                       _workoutDetails(workout),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: greyText,
+                      style: TextStyle(
+                        color: fitzaColors.secondaryText,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                       ),
@@ -480,16 +493,16 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                 children: [
                   Text(
                     _lastLoggedText(workout.recordedAt),
-                    style: const TextStyle(
-                      color: Color(0xFF6B7280),
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 3),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: Color(0xFF98A2B3),
+                    color: fitzaColors.secondaryText,
                     size: 22,
                   ),
                 ],
@@ -507,20 +520,22 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     required Color iconColor,
     bool isLoading = false,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
+      decoration: _cardDecoration(context),
       child: Column(
         children: [
           if (isLoading)
-            const SizedBox(
+            SizedBox(
               height: 34,
               width: 34,
-              child: CircularProgressIndicator(strokeWidth: 2.4),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: fitzaColors.primaryBlue,
+              ),
             )
           else
             Icon(
@@ -532,8 +547,8 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: darkText,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
               fontSize: 14,
               height: 1.35,
               fontWeight: FontWeight.w700,
@@ -541,6 +556,60 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  InputDecoration _searchInputDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return InputDecoration(
+      hintText: 'Search workouts or exercises',
+      hintStyle: TextStyle(
+        color: fitzaColors.secondaryText,
+        fontSize: 14.5,
+        fontWeight: FontWeight.w500,
+      ),
+      prefixIcon: Icon(
+        Icons.search_rounded,
+        color: fitzaColors.secondaryText,
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 13,
+      ),
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.primaryBlue,
+          width: 1.7,
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return BoxDecoration(
+      color: fitzaColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [
+        BoxShadow(
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
     );
   }
 }
