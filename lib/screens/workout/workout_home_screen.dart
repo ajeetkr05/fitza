@@ -7,10 +7,17 @@ import '../../services/progress/workout_firestore_service.dart';
 import '../../services/workout/recommendation_service.dart';
 import '../../models/workout/daily_recommendation.dart';
 import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
+import 'workout_details_screen.dart';
 
 /// "Workout Home" + "Today's Recommendation" combined (screens 1 & 2 in the
-/// low-level wireflow).
-
+/// low-level wireflow). Slots into AppShell in place of
+/// `_placeholderScreen('Workout')`.
+///
+/// NOTE ON NAV PROPS: mirrors HomeScreen / ProgressDashboardScreen's
+/// constructor shape (selectedIndex, onTabChanged) since those were the
+/// pattern observed in app_shell.dart. If those two screens actually take
+/// different prop names, adjust here to match - I haven't seen their
+/// constructors directly.
 class WorkoutHomeScreen extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabChanged;
@@ -122,7 +129,7 @@ class WorkoutHomeScreen extends StatelessWidget {
           const SizedBox(height: 20),
           _whyThisWorkoutCard(recommendation),
           const SizedBox(height: 24),
-          _actionButtons(context),
+          _actionButtons(context, recommendation),
         ],
       ),
     );
@@ -235,16 +242,21 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _actionButtons(BuildContext context) {
+  Widget _actionButtons(BuildContext context, DailyRecommendation recommendation) {
     return Column(
       children: [
         SizedBox(
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
-            // TODO: wire to Active Workout screen once built (screen 5 in
-            // the detailed wireflow).
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WorkoutDetailsScreen(recommendation: recommendation),
+                ),
+              );
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
               foregroundColor: Colors.white,
@@ -253,7 +265,7 @@ class WorkoutHomeScreen extends StatelessWidget {
               ),
             ),
             child: const Text(
-              'Start Workout',
+              'View Workout Details',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
