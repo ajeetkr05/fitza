@@ -38,6 +38,7 @@ dependencies:
   provider: ^6.1.5+1
   cloud_firestore: ^6.6.0
   firebase_auth: ^6.5.4
+  google_sign_in: ^7.2.0
   image_picker: ^1.1.2
   flutter_dotenv: ^5.2.1
 
@@ -66,6 +67,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - assets/images/auth/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
