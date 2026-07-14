@@ -545,9 +545,9 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           final calories = isLogged ? logs.fold(0.0, (sum, m) => sum + m.totalCalories) : 0.0;
 
           return Container(
-            width: 110,
+            width: 120,
             margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
@@ -570,14 +570,18 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      type,
-                      style: const TextStyle(
-                        color: darkText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        type,
+                        style: const TextStyle(
+                          color: darkText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 4),
                     if (isLogged)
                       const Icon(Icons.check_circle_rounded, color: successGreen, size: 16)
                     else

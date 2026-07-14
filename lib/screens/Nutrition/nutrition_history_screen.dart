@@ -317,16 +317,27 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
 
     int daysWithData = _selectedTab == 0 ? 1 : (_selectedTab == 1 ? 7 : 30);
 
+    // Generate allowed dates list for the selected tab
+    final now = DateTime.now();
+    List<DateTime> dateTimes = List.generate(daysWithData, (i) => now.subtract(Duration(days: i))).reversed.toList();
+    Set<String> allowedDates = dateTimes.map((dt) {
+      return "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+    }).toSet();
+
     for (var meal in _meals) {
-      totalCals += meal.totalCalories;
-      totalP += meal.totalProtein;
-      totalC += meal.totalCarbs;
-      totalF += meal.totalFat;
+      if (allowedDates.contains(meal.date)) {
+        totalCals += meal.totalCalories;
+        totalP += meal.totalProtein;
+        totalC += meal.totalCarbs;
+        totalF += meal.totalFat;
+      }
     }
 
     double totalWaterMl = 0.0;
     for (var w in _waterLogs) {
-      totalWaterMl += w.amountMl;
+      if (allowedDates.contains(w.date)) {
+        totalWaterMl += w.amountMl;
+      }
     }
 
     double avgCal = totalCals / daysWithData;
@@ -335,20 +346,14 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
     double avgF = totalF / daysWithData;
     double avgWaterL = (totalWaterMl / 1000.0) / daysWithData;
 
-    // Calculate goal completion: percentage of days calories <= targetCalories
-    Map<String, double> calMap = {};
-    for (var meal in _meals) {
-      calMap[meal.date] = (calMap[meal.date] ?? 0) + meal.totalCalories;
-    }
-    int successfulDays = 0;
-    calMap.forEach((date, calories) {
-      if (calories <= targetCalories && calories > 0) {
-        successfulDays++;
-      }
-    });
-    double goalCompletion = daysWithData == 1 
-        ? ((calMap.values.isNotEmpty && calMap.values.first <= targetCalories) ? 100.0 : 0.0)
-        : (successfulDays / daysWithData) * 100.0;
+
+    double calProgress = targetCalories > 0 ? (avgCal / targetCalories).clamp(0.0, 1.0) : 0.0;
+    double pProgress = targetProtein > 0 ? (avgP / targetProtein).clamp(0.0, 1.0) : 0.0;
+    double cProgress = targetCarbs > 0 ? (avgC / targetCarbs).clamp(0.0, 1.0) : 0.0;
+    double fProgress = targetFat > 0 ? (avgF / targetFat).clamp(0.0, 1.0) : 0.0;
+    double waterProgress = targetWaterL > 0 ? (avgWaterL / targetWaterL).clamp(0.0, 1.0) : 0.0;
+
+    double goalCompletion = ((calProgress + pProgress + cProgress + fProgress + waterProgress) / 5.0) * 100.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -551,25 +556,37 @@ class _CalorieBarChartPainter extends CustomPainter {
     // Draw columns/bars
     final barCount = values.length;
     final double barSpacing = tabIndex == 2 ? 2.5 : 12.0;
-    final double totalSpacing = barSpacing * (barCount - 1);
-    final double barWidth = (chartWidth - totalSpacing) / barCount;
+    
+    double barWidth;
+    if (barCount == 1) {
+      barWidth = 40.0;
+    } else {
+      final double totalSpacing = barSpacing * (barCount - 1);
+      barWidth = (chartWidth - totalSpacing) / barCount;
+    }
 
     for (int i = 0; i < barCount; i++) {
       final val = values[i];
       final label = labels[i];
 
       final double barHeight = (val / maxVal) * chartHeight;
-      final double x = paddingLeft + (i * (barWidth + barSpacing));
+      double x;
+      if (barCount == 1) {
+        x = paddingLeft + (chartWidth - barWidth) / 2;
+      } else {
+        x = paddingLeft + (i * (barWidth + barSpacing));
+      }
       final double y = paddingTop + chartHeight - barHeight;
 
       // Color the bar blue, or green if target achieved
       paint.color = val > target ? const Color(0xFFFF9800) : const Color(0xFF1555C0);
 
-      // Draw rounded bar
+      // Draw rounded bar with a safe corner radius (capped at 8.0 or half of barWidth)
+      final double radiusValue = (barWidth < 16.0) ? barWidth / 2.0 : 8.0;
       final rect = RRect.fromRectAndCorners(
         Rect.fromLTWH(x, y, barWidth, barHeight == 0 ? 2 : barHeight),
-        topLeft: Radius.circular(barWidth / 2),
-        topRight: Radius.circular(barWidth / 2),
+        topLeft: Radius.circular(radiusValue),
+        topRight: Radius.circular(radiusValue),
       );
       canvas.drawRRect(rect, paint);
 

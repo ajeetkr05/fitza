@@ -120,7 +120,8 @@ class NutritionFirestoreService {
   /// Fetches meal history logs for a range of dates.
   Future<List<MealEntry>> getHistoryMeals(int daysBack) async {
     final now = DateTime.now();
-    final cutoffDate = now.subtract(Duration(days: daysBack));
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final cutoffDate = todayStart.subtract(Duration(days: daysBack - 1));
     final snapshot = await _mealLogsCollection
         .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
         .get();
@@ -135,7 +136,8 @@ class NutritionFirestoreService {
   /// Fetches water history logs for a range of dates.
   Future<List<WaterLog>> getHistoryWater(int daysBack) async {
     final now = DateTime.now();
-    final cutoffDate = now.subtract(Duration(days: daysBack));
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final cutoffDate = todayStart.subtract(Duration(days: daysBack - 1));
     final snapshot = await _waterLogsCollection
         .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
         .get();
