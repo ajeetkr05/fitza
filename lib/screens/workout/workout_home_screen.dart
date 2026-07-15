@@ -10,7 +10,8 @@ import '../../services/workout/recommendation_service.dart';
 import '../../models/workout/daily_recommendation.dart';
 import '../../models/workout/plan_customization.dart';
 import '../../models/workout/calorie_summary.dart';
-import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
+import '../../services/Nutrition/gemini_service.dart';
+import '../../widgets/app_bottom_navigation.dart'; 
 import 'workout_details_screen.dart';
 import 'customize_plan_screen.dart';
 
@@ -113,8 +114,6 @@ class WorkoutHomeScreen extends StatelessWidget {
                     if (mealsSnapshot.hasData) {
                       calorieSummary = CalorieSummary.fromDailyTotals(
                         mealsSnapshot.data!.map((meal) => meal.totalCalories).toList(),
-                        targetCalories: profile.targetCalories ?? kDefaultTargetCalories,
-
                       );
                     }
 
@@ -302,7 +301,39 @@ class WorkoutHomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          ...recommendation.reasonBullets.map(
+          // The FACTS (reasonBullets) are decided entirely by
+          // RecommendationService - rule-based, not AI. This FutureBuilder
+          // only asks Gemini to REWRITE those facts more conversationally.
+          // While loading, or if the API call fails for any reason, it
+          // falls back to showing the plain rule-based bullets directly -
+          // so this enhancement can never block or break the screen.
+          FutureBuilder<String>(
+            future: GeminiService.instance.explainWorkout(
+              workoutTitle: recommendation.title,
+              ruleBasedBullets: recommendation.reasonBullets,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting ||
+                  !snapshot.hasData ||
+                  snapshot.hasError) {
+                return _reasonBulletsList(recommendation.reasonBullets);
+              }
+              return Text(
+                snapshot.data!,
+                style: const TextStyle(color: greyText, fontSize: 14, height: 1.4),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reasonBulletsList(List<String> bullets) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: bullets
+          .map(
             (bullet) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
@@ -318,9 +349,8 @@ class WorkoutHomeScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
+          )
+          .toList(),
     );
   }
 
