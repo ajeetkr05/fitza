@@ -1,4 +1,5 @@
 import '../../models/workout/exercise.dart';
+import 'exercise_muscle_group_map.dart';
 import 'package:fitza/models/progress/workout_entry.dart';
 
 /// Determines which muscle groups a user actually trained in a given
@@ -10,26 +11,32 @@ import 'package:fitza/models/progress/workout_entry.dart';
 /// does NOT indicate a body region, so it can't be used to figure out
 /// whether someone trained chest vs legs.
 ///
-/// Instead, each logged exercise inside `workout.exercises` has a free-text
-/// `name` field (e.g. "Bench Press", "Squat"). This analyzer matches that
-/// name (case-insensitive, trimmed) against the exercise library's `name`
-/// field to find the associated muscleGroup.
+/// Instead, each logged exercise inside `workout.exercises` has a `name`
+/// field. That name is matched (case-insensitive, trimmed) primarily
+/// against `kExerciseMuscleGroupMap` - a comprehensive mapping covering
+/// the full ~250-item autocomplete list used in Gym Workout logging - with
+/// the curated recommendation-engine library layered on top as a fallback/
+/// override. Since the Gym Workout screen's exercise field is an
+/// autocomplete tied to that same list, most real logged names should now
+/// match correctly.
 ///
-/// KNOWN LIMITATION: if a user typed a custom exercise name that isn't in
-/// the library (kSeedExercises today, a Firestore `exercises` collection
-/// later), it won't match and that exercise is silently skipped. This is
-/// fail-safe (treated as "unknown", not "matches everything"), but it does
-/// mean history-based rotation gets weaker as users log more unusual/custom
-/// exercises. A more robust fix later would be to store `muscleGroup`
-/// directly on each logged exercise at write-time (in the Log Workout
-/// screens), rather than re-deriving it after the fact - worth raising with
-/// whoever owns the Gym Workout logging screen.
+/// REMAINING LIMITATION: a user can still type something outside the
+/// autocomplete suggestions (it's a free-text field with suggestions, not
+/// a strict picker), so exotic/custom names will still fall through to
+/// "unknown" - this is fail-safe (treated as no signal), not incorrect.
 class ExerciseHistoryAnalyzer {
   final List<Exercise> library;
 
   ExerciseHistoryAnalyzer(this.library);
 
   late final Map<String, String> _nameToMuscleGroup = {
+    // Comprehensive map covering the real ~250-item autocomplete list used
+    // in Gym Workout logging - this is the primary source, since that's
+    // what users actually pick from when logging a workout.
+    ...kExerciseMuscleGroupMap,
+    // Library entries layered on top (can override) - covers any curated
+    // recommendation-engine exercises whose names might differ slightly
+    // from the autocomplete list.
     for (final exercise in library)
       exercise.name.trim().toLowerCase(): exercise.muscleGroup,
   };
