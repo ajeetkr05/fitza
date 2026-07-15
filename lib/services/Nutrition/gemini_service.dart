@@ -35,7 +35,7 @@ class GeminiService {
         client.connectionTimeout = const Duration(seconds: 10);
         
         final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$apiKey',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
         );
         
         final request = await client.postUrl(url);
@@ -241,6 +241,7 @@ ${ruleBasedBullets.map((b) => '- $b').join('\n')}
     _workoutExplanationCache[cacheKey] = explanation;
     return explanation;
   } catch (e) {
+    print('explainWorkout failed: $e');
     // Fallback: just present the rule-based facts as plain sentences -
     // still informative, just less conversational.
     return ruleBasedBullets.join(' ');
