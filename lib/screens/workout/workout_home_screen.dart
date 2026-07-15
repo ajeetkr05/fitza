@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../models/profile/user_profile.dart';
 import '../../models/progress/workout_entry.dart';
+import '../../models/Nutrition/meal_entry.dart';
 import '../../services/profile/profile_firestore_service.dart';
 import '../../services/progress/workout_firestore_service.dart';
+import '../../services/Nutrition/nutrition_firestore_service.dart';
 import '../../services/workout/recommendation_service.dart';
 import '../../models/workout/daily_recommendation.dart';
 import '../../models/workout/plan_customization.dart';
+import '../../models/workout/calorie_summary.dart';
 import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
 import 'workout_details_screen.dart';
 import 'customize_plan_screen.dart';
@@ -53,6 +56,16 @@ class WorkoutHomeScreen extends StatelessWidget {
     }
   }
 
+  /// Matches the 'yyyy-MM-dd' format NutritionFirestoreService.getMealsStream
+  /// expects - built manually rather than pulling in intl, since this is a
+  /// simple fixed-width case.
+  String get _todayDateKey {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,17 +103,35 @@ class WorkoutHomeScreen extends StatelessWidget {
                 // sessions for rotation purposes.
                 final recentWorkouts = workoutsSnapshot.data!.take(5).toList();
 
-                final recommendation =
-                    RecommendationService().generateRecommendation(
-                  profile: profile,
-                  recentWorkouts: recentWorkouts,
-                  customization: customization,
-                  // calorieSummary, availableEquipment, injuredMuscleGroups
-                  // intentionally omitted - not built yet. Add them here
-                  // once those features exist; no other change needed.
-                );
+                return StreamBuilder<List<MealEntry>>(
+                  stream: NutritionFirestoreService.instance.getMealsStream(_todayDateKey),
+                  builder: (context, mealsSnapshot) {
+                    // Calorie data isn't critical to showing a recommendation -
+                    // if it's still loading or errors out, just proceed
+                    // without it rather than blocking the whole screen.
+                    CalorieSummary? calorieSummary;
+                    if (mealsSnapshot.hasData) {
+                      calorieSummary = CalorieSummary.fromDailyTotals(
+                        mealsSnapshot.data!.map((meal) => meal.totalCalories).toList(),
+                        targetCalories: profile.targetCalories ?? kDefaultTargetCalories,
 
-                return _content(context, profile, recommendation);
+                      );
+                    }
+
+                    final recommendation =
+                        RecommendationService().generateRecommendation(
+                      profile: profile,
+                      recentWorkouts: recentWorkouts,
+                      customization: customization,
+                      calorieSummary: calorieSummary,
+                      // availableEquipment, injuredMuscleGroups intentionally
+                      // omitted - not built yet. Add them here once those
+                      // features exist; no other change needed.
+                    );
+
+                    return _content(context, profile, recommendation);
+                  },
+                );
               },
             );
           },

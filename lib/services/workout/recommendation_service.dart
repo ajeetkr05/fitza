@@ -1,7 +1,7 @@
 import '../../models/workout/exercise.dart';
 import '../../models/workout/exercise_database.dart';
 import '../../models/workout/daily_recommendation.dart';
-import '../../models/workout/calorie_summary_placeholder.dart';
+import '../../models/workout/calorie_summary.dart';
 import '../../models/workout/plan_customization.dart';
 import 'exercise_history_analyzer.dart';
 import 'package:fitza/models/profile/user_profile.dart';
