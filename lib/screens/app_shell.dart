@@ -5,6 +5,8 @@ import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
 import 'progress/progress_dashboard_screen.dart';
 import 'workout/workout_home_screen.dart';
+import '../models/workout/plan_customization.dart';
+
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -15,12 +17,20 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+  PlanCustomization? _workoutCustomization;
 
   void _changeTab(int index) {
     setState(() {
       _selectedIndex = index;
+      
+
     });
   }
+
+  void _updateWorkoutCustomization(PlanCustomization? customization) {
+  setState(() => _workoutCustomization = customization);
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +42,8 @@ class _AppShellState extends State<AppShell> {
       WorkoutHomeScreen(
         selectedIndex: _selectedIndex,
         onTabChanged: _changeTab,
+        customization: _workoutCustomization,
+        onCustomizationChanged: _updateWorkoutCustomization,
       ),
       _placeholderScreen('Nutrition'),
       ProgressDashboardScreen(

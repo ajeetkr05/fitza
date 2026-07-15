@@ -6,32 +6,52 @@ import '../../services/profile/profile_firestore_service.dart';
 import '../../services/progress/workout_firestore_service.dart';
 import '../../services/workout/recommendation_service.dart';
 import '../../models/workout/daily_recommendation.dart';
+import '../../models/workout/plan_customization.dart';
 import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
 import 'workout_details_screen.dart';
+import 'customize_plan_screen.dart';
 
 /// "Workout Home" + "Today's Recommendation" combined (screens 1 & 2 in the
 /// low-level wireflow). Slots into AppShell in place of
 /// `_placeholderScreen('Workout')`.
 ///
-/// NOTE ON NAV PROPS: mirrors HomeScreen / ProgressDashboardScreen's
-/// constructor shape (selectedIndex, onTabChanged) since those were the
-/// pattern observed in app_shell.dart. If those two screens actually take
-/// different prop names, adjust here to match - I haven't seen their
-/// constructors directly.
+/// STATE OWNERSHIP: `customization` is now owned by AppShell (the one
+/// stable parent that survives tab switches), not this widget. Previously
+/// this was a StatefulWidget holding its own customization state, but
+/// AppShell rebuilds a fresh `pages` list on every tab switch - meaning a
+/// self-owned state would silently reset every time the user switched
+/// tabs and came back. Passing it down as a prop (plus a callback to
+/// update it) fixes that.
 class WorkoutHomeScreen extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabChanged;
+  final PlanCustomization? customization;
+  final ValueChanged<PlanCustomization?> onCustomizationChanged;
 
   const WorkoutHomeScreen({
     super.key,
     required this.selectedIndex,
     required this.onTabChanged,
+    required this.customization,
+    required this.onCustomizationChanged,
   });
 
-  // Matches the palette used in ExerciseDetailScreen for visual consistency.
   static const Color primaryBlue = Color(0xFF1555C0);
   static const Color darkText = Color(0xFF0B1B4D);
   static const Color greyText = Color(0xFF667085);
+
+  Future<void> _openCustomizePlan(BuildContext context) async {
+    final result = await Navigator.push<PlanCustomization>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CustomizePlanScreen(initialCustomization: customization),
+      ),
+    );
+
+    if (result != null) {
+      onCustomizationChanged(result);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +94,7 @@ class WorkoutHomeScreen extends StatelessWidget {
                     RecommendationService().generateRecommendation(
                   profile: profile,
                   recentWorkouts: recentWorkouts,
+                  customization: customization,
                   // calorieSummary, availableEquipment, injuredMuscleGroups
                   // intentionally omitted - not built yet. Add them here
                   // once those features exist; no other change needed.
@@ -125,11 +146,41 @@ class WorkoutHomeScreen extends StatelessWidget {
             style: TextStyle(color: greyText, fontSize: 15),
           ),
           const SizedBox(height: 24),
+          if (customization != null) _customizedBanner(context),
+          if (customization != null) const SizedBox(height: 16),
           _recommendationCard(context, recommendation),
           const SizedBox(height: 20),
           _whyThisWorkoutCard(recommendation),
           const SizedBox(height: 24),
           _actionButtons(context, recommendation),
+        ],
+      ),
+    );
+  }
+
+  Widget _customizedBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF3FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.tune_rounded, color: primaryBlue, size: 18),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              "Today's plan reflects your custom preferences",
+              style: TextStyle(color: primaryBlue, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: () => onCustomizationChanged(null),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+            child: const Text('Reset', style: TextStyle(color: primaryBlue, fontSize: 13)),
+          ),
         ],
       ),
     );
@@ -275,8 +326,7 @@ class WorkoutHomeScreen extends StatelessWidget {
           width: double.infinity,
           height: 56,
           child: OutlinedButton(
-            // TODO: wire to Customize Plan screen (flow B) once built.
-            onPressed: () {},
+            onPressed: () => _openCustomizePlan(context),
             style: OutlinedButton.styleFrom(
               foregroundColor: primaryBlue,
               side: const BorderSide(color: primaryBlue),
@@ -287,23 +337,6 @@ class WorkoutHomeScreen extends StatelessWidget {
             child: const Text(
               'Customize Plan',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: TextButton(
-            // TODO: wire to Update Recommendation screen (flow C) once built.
-            onPressed: () {},
-            child: const Text(
-              'Update Recommendation',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: greyText,
-              ),
             ),
           ),
         ),

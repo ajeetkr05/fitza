@@ -2,6 +2,7 @@ import '../../models/workout/exercise.dart';
 import '../../models/workout/exercise_database.dart';
 import '../../models/workout/daily_recommendation.dart';
 import '../../models/workout/calorie_summary_placeholder.dart';
+import '../../models/workout/plan_customization.dart';
 import 'exercise_history_analyzer.dart';
 import 'package:fitza/models/profile/user_profile.dart';
 import 'package:fitza/models/progress/workout_entry.dart';
@@ -35,6 +36,11 @@ class RecommendationService {
   ///
   /// [availableEquipment] and [injuredMuscleGroups] are optional and unused
   /// until those features exist - passing null is safe and expected today.
+  ///
+  /// [customization] carries session-level overrides from the Customize
+  /// Plan screen (difficulty, workout location, muscle focus, exercise
+  /// count). These override the profile's normal values for THIS call only
+  /// - nothing is persisted back to UserProfile.
   DailyRecommendation generateRecommendation({
     required UserProfile profile,
     required List<WorkoutEntry> recentWorkouts,
@@ -42,22 +48,35 @@ class RecommendationService {
     List<String>? availableEquipment,
     List<String>? injuredMuscleGroups,
     List<Exercise>? exerciseLibrary,
+    PlanCustomization? customization,
   }) {
     final library = exerciseLibrary ?? kSeedExercises;
     final historyAnalyzer = ExerciseHistoryAnalyzer(library);
 
-    final targetMuscleGroup = _pickMuscleGroup(recentWorkouts, historyAnalyzer);
+    final effectiveDifficulty = customization?.difficulty ?? profile.fitnessExperience;
+    final effectiveWorkoutPreference =
+        customization?.workoutPreference ?? profile.workoutPreference;
+    final effectiveExerciseCount = customization?.exerciseCount ?? 6;
+
+    final targetMuscleGroup = customization?.targetMuscleGroup ??
+        _pickMuscleGroup(recentWorkouts, historyAnalyzer);
+
     final candidates = _filterExercises(
       library: library,
       muscleGroup: targetMuscleGroup,
-      profile: profile,
+      workoutPreference: effectiveWorkoutPreference,
       availableEquipment: availableEquipment,
       injuredMuscleGroups: injuredMuscleGroups,
     );
 
-    final selected = candidates.take(6).toList();
+    final selected = candidates.take(effectiveExerciseCount).toList();
     final prescriptions = selected
-        .map((exercise) => _prescribe(exercise, profile, calorieSummary))
+        .map((exercise) => _prescribe(
+              exercise,
+              goal: profile.goal,
+              experienceLevel: effectiveDifficulty,
+              calorieSummary: calorieSummary,
+            ))
         .toList();
 
     final regionLabel = _regionLabelForMuscleGroup(targetMuscleGroup);
@@ -67,12 +86,13 @@ class RecommendationService {
       title: '$regionLabel ${_titleSuffixForGoal(profile.goal)}',
       targetMuscles: targetMuscleGroup,
       durationMinutes: _estimateDuration(prescriptions),
-      difficulty: profile.fitnessExperience,
+      difficulty: effectiveDifficulty,
       exercises: prescriptions,
       reasonBullets: _buildReasonBullets(
         profile: profile,
         recentWorkouts: recentWorkouts,
         calorieSummary: calorieSummary,
+        wasCustomized: customization != null,
       ),
       generatedAt: DateTime.now(),
     );
@@ -138,16 +158,16 @@ class RecommendationService {
   List<Exercise> _filterExercises({
     required List<Exercise> library,
     required String muscleGroup,
-    required UserProfile profile,
+    required String workoutPreference,
     List<String>? availableEquipment,
     List<String>? injuredMuscleGroups,
   }) {
     final matches = library.where((exercise) {
       final muscleMatches = exercise.muscleGroup == muscleGroup ||
           muscleGroup == 'Full Body';
-      final locationMatches = profile.workoutPreference == 'Both' ||
+      final locationMatches = workoutPreference == 'Both' ||
           exercise.workoutType == 'Both' ||
-          exercise.workoutType == profile.workoutPreference;
+          exercise.workoutType == workoutPreference;
       final equipmentOk = exercise.isUsableWithEquipment(availableEquipment);
       final safe = exercise.isSafeFor(injuredMuscleGroups);
       return muscleMatches && locationMatches && equipmentOk && safe;
@@ -159,9 +179,9 @@ class RecommendationService {
     if (matches.length >= 4) return matches;
 
     return library.where((exercise) {
-      final locationMatches = profile.workoutPreference == 'Both' ||
+      final locationMatches = workoutPreference == 'Both' ||
           exercise.workoutType == 'Both' ||
-          exercise.workoutType == profile.workoutPreference;
+          exercise.workoutType == workoutPreference;
       return locationMatches &&
           exercise.isUsableWithEquipment(availableEquipment) &&
           exercise.isSafeFor(injuredMuscleGroups);
@@ -171,17 +191,18 @@ class RecommendationService {
   // ---- prescription (sets/reps/rest) ----
 
   ExercisePrescription _prescribe(
-    Exercise exercise,
-    UserProfile profile,
+    Exercise exercise, {
+    required String goal,
+    required String experienceLevel,
     CalorieSummary? calorieSummary,
-  ) {
+  }) {
     // Base sets/reps by goal - standard strength-training heuristics.
     var sets = 3;
     var repsMin = 8;
     var repsMax = 12;
     var restSeconds = 60;
 
-    switch (profile.goal) {
+    switch (goal) {
       case 'Build Strength':
         sets = 4;
         repsMin = 4;
@@ -215,9 +236,9 @@ class RecommendationService {
     }
 
     // Beginners: reduce volume slightly to build consistency without burnout.
-    if (profile.fitnessExperience == 'Beginner') {
+    if (experienceLevel == 'Beginner') {
       sets = (sets - 1).clamp(2, 5);
-    } else if (profile.fitnessExperience == 'Advanced') {
+    } else if (experienceLevel == 'Advanced') {
       sets = sets + 1;
     }
 
@@ -268,6 +289,7 @@ class RecommendationService {
     required UserProfile profile,
     required List<WorkoutEntry> recentWorkouts,
     CalorieSummary? calorieSummary,
+    bool wasCustomized = false,
   }) {
     final bullets = <String>[
       'Your fitness goal: ${profile.goal}',
@@ -287,6 +309,10 @@ class RecommendationService {
             ? 'Calorie intake: running a deficit - volume trimmed slightly for recovery'
             : 'Calorie intake: on track',
       );
+    }
+
+    if (wasCustomized) {
+      bullets.add('This plan reflects your custom preferences for today');
     }
 
     return bullets;
