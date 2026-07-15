@@ -11,7 +11,7 @@ import '../../models/workout/daily_recommendation.dart';
 import '../../models/workout/plan_customization.dart';
 import '../../models/workout/calorie_summary.dart';
 import '../../services/Nutrition/gemini_service.dart';
-import '../../widgets/app_bottom_navigation.dart'; 
+import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
 import 'workout_details_screen.dart';
 import 'customize_plan_screen.dart';
 
@@ -313,9 +313,10 @@ class WorkoutHomeScreen extends StatelessWidget {
               ruleBasedBullets: recommendation.reasonBullets,
             ),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting ||
-                  !snapshot.hasData ||
-                  snapshot.hasError) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const _ExplanationShimmer();
+              }
+              if (!snapshot.hasData || snapshot.hasError) {
                 return _reasonBulletsList(recommendation.reasonBullets);
               }
               return Text(
@@ -416,6 +417,78 @@ class WorkoutHomeScreen extends StatelessWidget {
           offset: Offset(0, 5),
         ),
       ],
+    );
+  }
+}
+
+/// Simple animated shimmer placeholder shown while waiting on
+/// GeminiService.explainWorkout - three pulsing bars mimicking text lines.
+/// No external shimmer package needed; just an opacity pulse loop.
+class _ExplanationShimmer extends StatefulWidget {
+  const _ExplanationShimmer();
+
+  @override
+  State<_ExplanationShimmer> createState() => _ExplanationShimmerState();
+}
+
+class _ExplanationShimmerState extends State<_ExplanationShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _opacity = Tween<double>(begin: 0.35, end: 0.9).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacity.value,
+          child: child,
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _shimmerBar(widthFraction: 1.0),
+          const SizedBox(height: 8),
+          _shimmerBar(widthFraction: 0.9),
+          const SizedBox(height: 8),
+          _shimmerBar(widthFraction: 0.6),
+        ],
+      ),
+    );
+  }
+
+  Widget _shimmerBar({required double widthFraction}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          height: 13,
+          width: constraints.maxWidth * widthFraction,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3E8F0),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        );
+      },
     );
   }
 }
