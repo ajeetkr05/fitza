@@ -524,9 +524,8 @@ void _showComingSoon(String title) {
     ),
   );
 }
-      ),
-    );
-  }
+     
+  
 
   @override
   Widget build(BuildContext context) {
@@ -734,27 +733,8 @@ _sectionCard(
     ),
   ],
 ),
-                                ),
-                              ),
-                              _divider(),
-                              _navigationRow(
-                                icon: Icons.emoji_events_outlined,
-                                title: 'View Achievements',
-                                subtitle: 'Badges and milestones',
-                                onTap: () => _showComingSoon('Achievements'),
-                              ),
-                              _divider(),
-                              _navigationRow(
-                                icon: Icons.leaderboard_outlined,
-                                title: 'View Personal Records',
-                                subtitle: 'Best lifts and workout records',
-                                onTap: () =>
-                                    _showComingSoon('Personal records'),
-                              ),
                             ],
                           ),
-                        ],
-                      ),
                     );
                   },
                 );
@@ -1674,4 +1654,4 @@ class _ProfileInfoItem {
     required this.label,
     required this.color,
   });
-}}
+}
