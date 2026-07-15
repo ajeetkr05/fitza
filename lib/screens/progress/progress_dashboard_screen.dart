@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../main.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import '../../widgets/fitza_header.dart';
 import 'add_weight/add_weight_screen.dart';
 import 'log_workout/select_workout_type_screen.dart';
 import 'exercise_history/exercise_history_screen.dart';
+import 'exercise_history/workout_session_detail_screen.dart';
 import 'exercise_history/exercise_detail_screen.dart';
 import 'trends/trends_screen.dart';
 import '../../models/progress/weight_entry.dart';
@@ -30,8 +32,10 @@ class ProgressDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = context.fitzaColors;
+
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: fitzaColors.background,
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: selectedIndex,
         onTap: onTabChanged,
@@ -50,10 +54,10 @@ class ProgressDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 18),
 
-              const Text(
+              Text(
                 'Progress Dashboard',
                 style: TextStyle(
-                  color: darkText,
+                  color: fitzaColors.primaryText,
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
@@ -62,10 +66,10 @@ class ProgressDashboardScreen extends StatelessWidget {
 
               const SizedBox(height: 3),
 
-              const Text(
+              Text(
                 'Track your weight, workouts, and weekly progress.',
                 style: TextStyle(
-                  color: Color(0xFF667085),
+                  color: fitzaColors.secondaryText,
                   fontSize: 12.5,
                   height: 1.3,
                   fontWeight: FontWeight.w500,
@@ -533,13 +537,27 @@ class ProgressDashboardScreen extends StatelessWidget {
     }
   }
 
-  String _recentWorkoutTitle(WorkoutEntry workout) {
-    if (workout.exercises.isNotEmpty) {
-      final name = workout.exercises.first['name']?.toString().trim() ?? '';
+  num? _numberValue(dynamic value) {
+    if (value is num) {
+      return value;
+    }
 
-      if (name.isNotEmpty) {
-        return name;
-      }
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  String _formatNumber(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
+  }
+
+  String _recentWorkoutTitle(WorkoutEntry workout) {
+    final name = workout.workoutName.trim();
+
+    if (name.isNotEmpty) {
+      return name;
     }
 
     return '${workout.workoutType} Workout';
@@ -548,7 +566,7 @@ class ProgressDashboardScreen extends StatelessWidget {
   String _recentWorkoutDetails(WorkoutEntry workout) {
     final parts = <String>[workout.workoutType];
 
-    if (workout.durationMinutes > 0) {
+    if (workout.workoutType != 'Gym' && workout.durationMinutes > 0) {
       parts.add('${workout.durationMinutes} min');
     }
 
@@ -571,6 +589,40 @@ class ProgressDashboardScreen extends StatelessWidget {
     }
 
     return parts.join(' • ');
+  }
+
+  String _cardioLatestDetails(WorkoutEntry workout) {
+    if (workout.exercises.isEmpty) {
+      return _recentWorkoutDetails(workout);
+    }
+
+    final exercise = workout.exercises.first;
+    final parts = <String>[];
+
+    final distance = _numberValue(exercise['distanceKm']);
+    final duration = _numberValue(exercise['durationMinutes']);
+    final steps = _numberValue(exercise['steps']);
+    final calories = _numberValue(exercise['caloriesBurned']);
+
+    if (distance != null) {
+      parts.add('${_formatNumber(distance)} km');
+    }
+
+    if (duration != null) {
+      parts.add('${_formatNumber(duration)} min');
+    } else if (workout.durationMinutes > 0) {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    if (steps != null) {
+      parts.add('${_formatNumber(steps)} steps');
+    }
+
+    if (calories != null) {
+      parts.add('${_formatNumber(calories)} kcal');
+    }
+
+    return parts.isEmpty ? _recentWorkoutDetails(workout) : parts.join(' • ');
   }
 
   String _recentWorkoutTime(DateTime date) {
@@ -606,90 +658,98 @@ class ProgressDashboardScreen extends StatelessWidget {
     required String subtitle,
     required Color subtitleColor,
   }) {
-    return Container(
-      height: 132,
-      padding: const EdgeInsets.all(12),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: iconColor.withValues(alpha: 0.12),
-            child: Icon(icon, color: iconColor, size: 21),
-          ),
-          const Spacer(),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF5B6475),
-              fontSize: 11.5,
-              height: 1.12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return Builder(
+      builder: (context) {
+        final fitzaColors = context.fitzaColors;
+
+        return Container(
+          height: 132,
+          padding: const EdgeInsets.all(12),
+          decoration: _cardDecoration(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: darkText,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: iconColor.withValues(alpha: 0.12),
+                child: Icon(icon, color: iconColor, size: 21),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: fitzaColors.secondaryText,
+                  fontSize: 11.5,
+                  height: 1.12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              if (unit.isNotEmpty) ...[
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(
-                    unit,
-                    style: const TextStyle(
-                      color: Color(0xFF45536A),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+              const SizedBox(height: 2),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                      ),
                     ),
+                  ),
+                  if (unit.isNotEmpty) ...[
+                    const SizedBox(width: 3),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        unit,
+                        style: TextStyle(
+                          color: fitzaColors.secondaryText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: subtitleColor,
+                    fontSize: 10.8,
+                    height: 1.12,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
             ],
           ),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: subtitleColor,
-                fontSize: 10.8,
-                height: 1.12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _quickActionsSection(BuildContext context) {
+    final fitzaColors = context.fitzaColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Quick Actions',
           style: TextStyle(
-            color: darkText,
+            color: fitzaColors.primaryText,
             fontSize: 19,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.2,
@@ -773,6 +833,7 @@ class ProgressDashboardScreen extends StatelessWidget {
 
   Widget _weightTrendCard(BuildContext context) {
     var selectedWindowStart = _threeMonthWindowStart(DateTime.now());
+    final fitzaColors = context.fitzaColors;
 
     return StatefulBuilder(
       builder: (context, setChartState) {
@@ -797,15 +858,15 @@ class ProgressDashboardScreen extends StatelessWidget {
 
         return Container(
           padding: const EdgeInsets.all(16),
-          decoration: _cardDecoration(),
+          decoration: _cardDecoration(context),
           child: Column(
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Weight Trend',
                     style: TextStyle(
-                      color: darkText,
+                      color: fitzaColors.primaryText,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
@@ -872,8 +933,8 @@ class ProgressDashboardScreen extends StatelessWidget {
                           child: Text(
                             _threeMonthTitle(selectedWindowStart),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: darkText,
+                            style: TextStyle(
+                              color: fitzaColors.primaryText,
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.2,
@@ -941,8 +1002,8 @@ class ProgressDashboardScreen extends StatelessWidget {
                             Text(
                               rangeText,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFF667085),
+                              style: TextStyle(
+                                color: fitzaColors.secondaryText,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -956,8 +1017,8 @@ class ProgressDashboardScreen extends StatelessWidget {
                                 entries: periodEntries,
                                 windowStart: selectedWindowStart,
                                 lineColor: primaryBlue,
-                                gridColor: const Color(0xFFE1E7F0),
-                                textColor: const Color(0xFF667085),
+                                gridColor: fitzaColors.border,
+                                textColor: fitzaColors.secondaryText,
                               ),
                             ),
 
@@ -1001,19 +1062,25 @@ class ProgressDashboardScreen extends StatelessWidget {
     required VoidCallback? onTap,
     bool enabled = true,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: enabled ? onTap : null,
-      child: Container(
-        height: 34,
-        width: 34,
-        alignment: Alignment.center,
-        child: Icon(
-          icon,
-          size: 30,
-          color: enabled ? const Color(0xFF667085) : const Color(0xFFD0D5DD),
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final fitzaColors = context.fitzaColors;
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: enabled ? onTap : null,
+          child: Container(
+            height: 34,
+            width: 34,
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 30,
+              color: enabled ? fitzaColors.secondaryText : fitzaColors.disabled,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1166,17 +1233,19 @@ class ProgressDashboardScreen extends StatelessWidget {
   }
 
   Widget _recentWorkoutsCard(BuildContext context) {
+    final fitzaColors = context.fitzaColors;
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Recent Workouts',
                 style: TextStyle(
-                  color: darkText,
+                  color: fitzaColors.primaryText,
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.2,
@@ -1236,27 +1305,24 @@ class ProgressDashboardScreen extends StatelessWidget {
                 );
               }
 
-              final recentWorkouts = snapshot.data!
-                  .reversed
-                  .take(3)
-                  .toList();
+              final recentWorkouts = snapshot.data!.reversed.take(3).toList();
 
               if (recentWorkouts.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Column(
-                    children: const [
+                    children: [
                       Icon(
                         Icons.fitness_center_outlined,
-                        color: Color(0xFF98A2B3),
+                        color: fitzaColors.secondaryText,
                         size: 28,
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Save a workout to see it here.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF667085),
+                          color: fitzaColors.secondaryText,
                           fontSize: 13,
                           height: 1.35,
                         ),
@@ -1291,23 +1357,36 @@ class ProgressDashboardScreen extends StatelessWidget {
     BuildContext context, {
     required WorkoutEntry workout,
   }) {
+    final fitzaColors = context.fitzaColors;
     final iconColor = _workoutIconColor(workout.workoutType);
     final exerciseTitle = _recentWorkoutTitle(workout);
     final workoutDetails = _recentWorkoutDetails(workout);
 
     return Material(
-      color: const Color(0xFFF9FBFE),
+      color: fitzaColors.inputSurface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
+          if (workout.workoutType == 'Cardio') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ExerciseDetailScreen(
+                  exerciseName: _recentWorkoutTitle(workout),
+                  workoutType: workout.workoutType,
+                  latestDetails: _cardioLatestDetails(workout),
+                ),
+              ),
+            );
+            return;
+          }
+
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ExerciseDetailScreen(
-                exerciseName: exerciseTitle,
-                workoutType: workout.workoutType,
-                latestDetails: workoutDetails,
+              builder: (_) => WorkoutSessionDetailScreen(
+                workout: workout,
               ),
             ),
           );
@@ -1316,7 +1395,7 @@ class ProgressDashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE1E7F0)),
+            border: Border.all(color: fitzaColors.border),
           ),
           child: Row(
             children: [
@@ -1338,8 +1417,8 @@ class ProgressDashboardScreen extends StatelessWidget {
                       exerciseTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: darkText,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
@@ -1350,8 +1429,8 @@ class ProgressDashboardScreen extends StatelessWidget {
                       workoutDetails,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF5B6475),
+                      style: TextStyle(
+                        color: fitzaColors.secondaryText,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1365,16 +1444,16 @@ class ProgressDashboardScreen extends StatelessWidget {
                 children: [
                   Text(
                     _recentWorkoutTime(workout.recordedAt),
-                    style: const TextStyle(
-                      color: Color(0xFF6B7280),
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: Color(0xFF98A2B3),
+                    color: fitzaColors.secondaryText,
                     size: 21,
                   ),
                 ],
@@ -1392,6 +1471,8 @@ class ProgressDashboardScreen extends StatelessWidget {
     required String label,
     VoidCallback? onTap,
   }) {
+    final fitzaColors = context.fitzaColors;
+
     return InkWell(
       borderRadius: BorderRadius.circular(15),
       onTap: onTap ?? () => _showComingSoon(context, label),
@@ -1399,16 +1480,16 @@ class ProgressDashboardScreen extends StatelessWidget {
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: fitzaColors.surface,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFE1E7F0)),
+          border: Border.all(color: fitzaColors.border),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             CircleAvatar(
               radius: 15,
-              backgroundColor: const Color(0xFFEAF3FF),
+              backgroundColor: primaryBlue.withValues(alpha: 0.14),
               child: Icon(icon, color: primaryBlue, size: 18),
             ),
             const SizedBox(width: 9),
@@ -1417,8 +1498,8 @@ class ProgressDashboardScreen extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: darkText,
+                style: TextStyle(
+                  color: fitzaColors.primaryText,
                   fontSize: 12.2,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1430,15 +1511,19 @@ class ProgressDashboardScreen extends StatelessWidget {
     );
   }
 
-  BoxDecoration _cardDecoration() {
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final fitzaColors = context.fitzaColors;
+
     return BoxDecoration(
-      color: Colors.white,
+      color: fitzaColors.surface,
       borderRadius: BorderRadius.circular(18),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
-          color: Color(0x0F000000),
+          color: context.isDarkMode
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
           blurRadius: 10,
-          offset: Offset(0, 4),
+          offset: const Offset(0, 4),
         ),
       ],
     );
@@ -1588,7 +1673,7 @@ class _ThreeMonthWeightChartPainter extends CustomPainter {
         text: TextSpan(
           text: monthText,
           style: TextStyle(
-            color: i == 0 ? const Color(0xFF0B1B4D) : textColor,
+            color: textColor,
             fontSize: 12,
             fontWeight: i == 0 ? FontWeight.w800 : FontWeight.w600,
           ),
@@ -1746,5 +1831,15 @@ class _ThreeMonthWeightChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _ThreeMonthWeightChartPainter oldDelegate) {
     return oldDelegate.entries != entries ||
         oldDelegate.windowStart != windowStart;
+  }
+}
+
+extension _ProgressThemeContext on BuildContext {
+  FitzaThemeColors get fitzaColors {
+    return Theme.of(this).extension<FitzaThemeColors>()!;
+  }
+
+  bool get isDarkMode {
+    return Theme.of(this).brightness == Brightness.dark;
   }
 }

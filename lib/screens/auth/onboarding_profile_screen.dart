@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth/auth_service.dart';
-import '../../services/profile/profile_firestore_service.dart';
+import 'onboarding_targets_screen.dart';
 
 class OnboardingProfileScreen extends StatefulWidget {
   const OnboardingProfileScreen({super.key});
@@ -92,74 +92,52 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _completeProfile() async {
+  void _completeProfile() {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await ProfileFirestoreService.instance.saveOnboardingProfile(
-        displayName: _nameController.text,
-        age: int.parse(_ageController.text.trim()),
-        heightCm: double.parse(_heightController.text.trim()),
-        weightKg: _weightController.text.trim().isEmpty
-            ? null
-            : double.parse(_weightController.text.trim()),
-        goal: _selectedGoal,
-        activityLevel: _selectedActivity,
-        gender: _selectedGender,
-        location: _selectedLocation,
-        workoutPreference: _selectedWorkoutPreference,
-        dietaryPreference: _selectedDietaryPreference,
-        fitnessExperience: _selectedFitnessExperience,
-      );
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save profile. Please try again.'),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OnboardingTargetsScreen(
+          displayName: _nameController.text.trim(),
+          age: int.parse(_ageController.text.trim()),
+          heightCm: double.parse(_heightController.text.trim()),
+          weightKg: _weightController.text.trim().isEmpty
+              ? null
+              : double.parse(_weightController.text.trim()),
+          goal: _selectedGoal,
+          activityLevel: _selectedActivity,
+          gender: _selectedGender,
+          location: _selectedLocation,
+          workoutPreference: _selectedWorkoutPreference,
+          dietaryPreference: _selectedDietaryPreference,
+          fitnessExperience: _selectedFitnessExperience,
         ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
+      ),
+    );
   }
 
-  Future<void> _skipForNow() async {
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await ProfileFirestoreService.instance.skipProfileSetup();
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not skip setup. Please try again.'),
+  void _skipForNow() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const OnboardingTargetsScreen(
+          displayName: 'Fitza User',
+          age: 25,
+          heightCm: 170.0,
+          weightKg: null,
+          goal: 'Stay Fit',
+          activityLevel: 'Moderate',
+          gender: 'Prefer not to say',
+          location: 'Home',
+          workoutPreference: 'Both',
+          dietaryPreference: 'Not set',
+          fitnessExperience: 'Beginner',
         ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
+      ),
+    );
   }
 
   Future<void> _signOut() async {

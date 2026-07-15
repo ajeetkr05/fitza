@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   AuthService._();
@@ -9,7 +10,43 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  bool _googleSignInInitialized = false;
+
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  Future<void> _initializeGoogleSignIn() async {
+    if (_googleSignInInitialized) {
+      return;
+    }
+
+    await GoogleSignIn.instance.initialize();
+    _googleSignInInitialized = true;
+  }
+
+  Future<void> _createOrUpdateUserDocument(User? user) async {
+    if (user == null) {
+      throw StateError('Could not find the signed-in user.');
+    }
+
+    final userDocument = _firestore.collection('users').doc(user.uid);
+    final snapshot = await userDocument.get();
+
+    final data = <String, dynamic>{
+      'email': user.email,
+      'displayName': user.displayName,
+      'photoURL': user.photoURL,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (!snapshot.exists) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+    }
+
+    await userDocument.set(
+      data,
+      SetOptions(merge: true),
+    );
+  }
 
   Future<void> signUp({
     required String email,
@@ -27,15 +64,7 @@ class AuthService {
     }
 
     try {
-      await _firestore.collection('users').doc(user.uid).set(
-        {
-          'email': user.email,
-          'profileSetupCompleted': false,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      await _createOrUpdateUserDocument(user);
     } catch (error) {
       await _auth.signOut();
       rethrow;
@@ -50,6 +79,43 @@ class AuthService {
       email: email.trim().toLowerCase(),
       password: password,
     );
+  }
+
+  Future<void> signInWithGoogle() async {
+    await _initializeGoogleSignIn();
+
+    if (!GoogleSignIn.instance.supportsAuthenticate()) {
+      throw FirebaseAuthException(
+        code: 'google-sign-in-not-supported',
+        message: 'Google sign-in is not supported on this platform.',
+      );
+    }
+
+    final googleUser = await GoogleSignIn.instance.authenticate();
+    final googleAuth = googleUser.authentication;
+
+    final idToken = googleAuth.idToken;
+
+    if (idToken == null) {
+      throw FirebaseAuthException(
+        code: 'missing-google-id-token',
+        message: 'Could not get Google sign-in token.',
+      );
+    }
+
+    final credential = GoogleAuthProvider.credential(
+      idToken: idToken,
+    );
+
+    final userCredential = await _auth.signInWithCredential(credential);
+    await _createOrUpdateUserDocument(userCredential.user);
+  }
+
+  Future<void> signInWithApple() async {
+    final appleProvider = AppleAuthProvider();
+
+    final userCredential = await _auth.signInWithProvider(appleProvider);
+    await _createOrUpdateUserDocument(userCredential.user);
   }
 
   Future<void> sendPasswordReset({
@@ -84,6 +150,13 @@ String friendlyAuthErrorMessage(Object error) {
         return 'Too many attempts. Please try again later.';
       case 'network-request-failed':
         return 'Check your internet connection and try again.';
+      case 'google-sign-in-not-supported':
+        return 'Google sign-in is not supported on this device.';
+      case 'missing-google-id-token':
+        return 'Could not complete Google sign-in. Please try again.';
+      case 'web-context-cancelled':
+      case 'canceled':
+        return 'Sign-in was cancelled.';
       default:
         return error.message ?? 'Authentication failed. Please try again.';
     }

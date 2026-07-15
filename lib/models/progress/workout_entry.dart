@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WorkoutEntry {
   final String id;
+  final String workoutName;
   final String workoutType;
   final int durationMinutes;
   final String notes;
@@ -11,6 +12,7 @@ class WorkoutEntry {
 
   const WorkoutEntry({
     required this.id,
+    required this.workoutName,
     required this.workoutType,
     required this.durationMinutes,
     required this.notes,
@@ -21,6 +23,7 @@ class WorkoutEntry {
 
   Map<String, dynamic> toMap() {
     return {
+      'workoutName': workoutName,
       'workoutType': workoutType,
       'durationMinutes': durationMinutes,
       'notes': notes,
@@ -46,11 +49,28 @@ class WorkoutEntry {
             .toList()
         : <Map<String, dynamic>>[];
 
+    final savedWorkoutName = data['workoutName']?.toString().trim() ?? '';
+
+    String fallbackWorkoutName() {
+      if (exercises.isNotEmpty) {
+        final firstExerciseName = exercises.first['name']?.toString().trim();
+
+        if (firstExerciseName != null && firstExerciseName.isNotEmpty) {
+          return firstExerciseName;
+        }
+      }
+
+      final type = data['workoutType'] as String? ?? 'Workout';
+      return '$type Workout';
+    }
+
     final recordedAtValue = data['recordedAt'];
     final createdAtValue = data['createdAt'];
 
     return WorkoutEntry(
       id: document.id,
+      workoutName:
+          savedWorkoutName.isEmpty ? fallbackWorkoutName() : savedWorkoutName,
       workoutType: data['workoutType'] as String? ?? 'Workout',
       durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 0,
       notes: data['notes'] as String? ?? '',

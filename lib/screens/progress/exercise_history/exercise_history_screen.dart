@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../../models/progress/workout_entry.dart';
 import '../../../services/progress/workout_firestore_service.dart';
+import 'workout_session_detail_screen.dart';
 import 'exercise_detail_screen.dart';
 
 class ExerciseHistoryScreen extends StatefulWidget {
@@ -13,8 +15,7 @@ class ExerciseHistoryScreen extends StatefulWidget {
 
 class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
   static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
+  static const Color successGreen = Color(0xFF2E7D32);
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -26,132 +27,16 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     super.dispose();
   }
 
-  List<_ExerciseSummary> _buildExerciseSummaries(
-    List<WorkoutEntry> workouts,
-  ) {
-    final latestExerciseByKey = <String, _ExerciseSummary>{};
-
-    for (final workout in workouts) {
-      for (final exercise in workout.exercises) {
-        final rawName = exercise['name'];
-        final exerciseName = rawName?.toString().trim() ?? '';
-
-        if (exerciseName.isEmpty) {
-          continue;
-        }
-
-        final key =
-            '${workout.workoutType.toLowerCase()}|${exerciseName.toLowerCase()}';
-
-        latestExerciseByKey[key] = _ExerciseSummary(
-          name: exerciseName,
-          category: workout.workoutType,
-          details: _exerciseDetails(workout, exercise),
-          recordedAt: workout.recordedAt,
-        );
-      }
-    }
-
-    final summaries = latestExerciseByKey.values.toList();
-
-    summaries.sort(
-      (first, second) => second.recordedAt.compareTo(first.recordedAt),
-    );
-
-    return summaries;
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
   }
 
-  List<_ExerciseSummary> _filteredExercises(
-    List<_ExerciseSummary> exercises,
-  ) {
-    final searchText = _searchController.text.trim().toLowerCase();
-
-    return exercises.where((exercise) {
-      final matchesCategory = exercise.category == _selectedCategory;
-      final matchesSearch = exercise.name.toLowerCase().contains(searchText);
-
-      return matchesCategory && matchesSearch;
-    }).toList();
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
   }
 
-  String _exerciseDetails(
-    WorkoutEntry workout,
-    Map<String, dynamic> exercise,
-  ) {
-    if (workout.workoutType == 'Gym') {
-      final parts = <String>[];
-
-      final weight = _numberValue(exercise['weightKg']);
-      final reps = _numberValue(exercise['reps']);
-      final sets = _numberValue(exercise['sets']);
-
-      if (weight != null) {
-        parts.add('${_formatNumber(weight)} kg');
-      }
-
-      if (reps != null) {
-        parts.add('${_formatNumber(reps)} reps');
-      }
-
-      if (sets != null) {
-        parts.add('${_formatNumber(sets)} sets');
-      }
-
-      return parts.isEmpty
-          ? '${workout.durationMinutes} min workout'
-          : parts.join(' × ');
-    }
-
-    if (workout.workoutType == 'Cardio') {
-      final parts = <String>[];
-
-      final distance = _numberValue(exercise['distanceKm']);
-      final duration = _numberValue(exercise['durationMinutes']);
-      final steps = _numberValue(exercise['steps']);
-      final calories = _numberValue(exercise['caloriesBurned']);
-
-      if (distance != null) {
-        parts.add('${_formatNumber(distance)} km');
-      }
-
-      if (duration != null) {
-        parts.add('${_formatNumber(duration)} min');
-      }
-
-      if (steps != null) {
-        parts.add('${_formatNumber(steps)} steps');
-      }
-
-      if (calories != null) {
-        parts.add('${_formatNumber(calories)} kcal');
-      }
-
-      return parts.isEmpty
-          ? '${workout.durationMinutes} min workout'
-          : parts.join(' • ');
-    }
-
-    final parts = <String>[];
-
-    final duration = _numberValue(exercise['durationMinutes']);
-    final sets = _numberValue(exercise['sets']);
-    final difficulty = exercise['difficulty']?.toString().trim() ?? '';
-
-    if (duration != null) {
-      parts.add('${_formatNumber(duration)} min');
-    } else {
-      parts.add('${workout.durationMinutes} min');
-    }
-
-    if (sets != null) {
-      parts.add('${_formatNumber(sets)} sets');
-    }
-
-    if (difficulty.isNotEmpty) {
-      parts.add(difficulty);
-    }
-
-    return parts.join(' • ');
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.10);
   }
 
   num? _numberValue(dynamic value) {
@@ -162,6 +47,18 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     return double.tryParse(value?.toString() ?? '');
   }
 
+  num? _firstNumber(Map<String, dynamic> exercise, List<String> keys) {
+    for (final key in keys) {
+      final value = _numberValue(exercise[key]);
+
+      if (value != null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
   String _formatNumber(num value) {
     if (value % 1 == 0) {
       return value.toInt().toString();
@@ -170,31 +67,41 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     return value.toStringAsFixed(1);
   }
 
-  String _lastLoggedText(DateTime date) {
-    final today = DateTime.now();
-    final todayOnly = DateTime(today.year, today.month, today.day);
-    final dateOnly = DateTime(date.year, date.month, date.day);
+  List<WorkoutEntry> _filteredWorkouts(List<WorkoutEntry> workouts) {
+    final searchText = _searchController.text.trim().toLowerCase();
 
-    final difference = todayOnly.difference(dateOnly).inDays;
+    final filtered = workouts.where((workout) {
+      final matchesCategory = workout.workoutType == _selectedCategory;
+      final matchesSearch =
+          workout.workoutName.toLowerCase().contains(searchText) ||
+              workout.exercises.any(
+                (exercise) {
+                  final name = exercise['name']?.toString().toLowerCase() ?? '';
+                  return name.contains(searchText);
+                },
+              );
 
-    if (difference <= 0) {
-      return 'Last logged today';
+      return matchesCategory && matchesSearch;
+    }).toList();
+
+    filtered.sort(
+      (first, second) => second.recordedAt.compareTo(first.recordedAt),
+    );
+
+    return filtered;
+  }
+
+  Color _categoryColor(String category) {
+    switch (category) {
+      case 'Yoga':
+        return Colors.deepPurple;
+      case 'Calisthenics':
+        return successGreen;
+      case 'Cardio':
+        return Colors.orange;
+      default:
+        return primaryBlue;
     }
-
-    if (difference == 1) {
-      return 'Last logged yesterday';
-    }
-
-    if (difference < 7) {
-      return 'Last logged $difference days ago';
-    }
-
-    if (difference < 14) {
-      return 'Last logged 1 week ago';
-    }
-
-    final weeks = difference ~/ 7;
-    return 'Last logged $weeks weeks ago';
   }
 
   IconData _categoryIcon(String category) {
@@ -210,14 +117,108 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     }
   }
 
-  void _openExerciseDetail(_ExerciseSummary exercise) {
+  String _lastLoggedText(DateTime date) {
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    final difference = todayOnly.difference(dateOnly).inDays;
+
+    if (difference <= 0) {
+      return 'Today';
+    }
+
+    if (difference == 1) {
+      return 'Yesterday';
+    }
+
+    if (difference < 7) {
+      return '$difference days ago';
+    }
+
+    if (difference < 14) {
+      return '1 week ago';
+    }
+
+    return '${difference ~/ 7} weeks ago';
+  }
+
+  String _cardioWorkoutDetails(WorkoutEntry workout) {
+    final parts = <String>['Cardio'];
+
+    if (workout.exercises.isNotEmpty) {
+      final exercise = workout.exercises.first;
+
+      final distance = _firstNumber(exercise, ['distanceKm', 'distance']);
+      final duration = _firstNumber(exercise, ['durationMinutes', 'reps']);
+      final steps = _firstNumber(exercise, ['steps']);
+      final calories = _firstNumber(
+        exercise,
+        ['caloriesBurned', 'calories'],
+      );
+
+      if (distance != null) {
+        parts.add('${_formatNumber(distance)} km');
+      }
+
+      if (duration != null) {
+        parts.add('${_formatNumber(duration)} min');
+      } else if (workout.durationMinutes > 0) {
+        parts.add('${workout.durationMinutes} min');
+      }
+
+      if (steps != null) {
+        parts.add('${_formatNumber(steps)} steps');
+      }
+
+      if (calories != null) {
+        parts.add('${_formatNumber(calories)} kcal');
+      }
+    } else if (workout.durationMinutes > 0) {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    return parts.join(' • ');
+  }
+
+  String _workoutDetails(WorkoutEntry workout) {
+    if (workout.workoutType == 'Cardio') {
+      return _cardioWorkoutDetails(workout);
+    }
+
+    final count = workout.exercises.length;
+    final parts = <String>[
+      workout.workoutType,
+      '$count ${count == 1 ? 'exercise' : 'exercises'}',
+    ];
+
+    if (workout.workoutType != 'Gym' && workout.durationMinutes > 0) {
+      parts.add('${workout.durationMinutes} min');
+    }
+
+    return parts.join(' • ');
+  }
+
+  void _openWorkoutDetail(WorkoutEntry workout) {
+    if (workout.workoutType == 'Cardio') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ExerciseDetailScreen(
+            exerciseName: workout.workoutName,
+            workoutType: workout.workoutType,
+            latestDetails: _cardioWorkoutDetails(workout),
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ExerciseDetailScreen(
-          exerciseName: exercise.name,
-          workoutType: exercise.category,
-          latestDetails: exercise.details,
+        builder: (_) => WorkoutSessionDetailScreen(
+          workout: workout,
         ),
       ),
     );
@@ -225,31 +226,34 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fitzaColors = _colors(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: fitzaColors.background,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
               child: Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_rounded,
-                      color: primaryBlue,
-                      size: 30,
+                      color: fitzaColors.primaryText,
+                      size: 29,
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Exercise History',
+                      'Workout History',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: darkText,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                        color: fitzaColors.primaryText,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ),
@@ -257,87 +261,63 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                 ],
               ),
             ),
+
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
                       controller: _searchController,
                       onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Search exercises',
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: greyText,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 18,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFD4DDEA),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(
-                            color: primaryBlue,
-                            width: 2,
-                          ),
-                        ),
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                       ),
+                      decoration: _searchInputDecoration(context),
                     ),
-                    const SizedBox(height: 22),
+
+                    const SizedBox(height: 16),
+
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _categoryChip(
-                            label: 'Gym',
-                            icon: Icons.fitness_center_outlined,
-                          ),
-                          const SizedBox(width: 10),
-                          _categoryChip(
-                            label: 'Yoga',
-                            icon: Icons.self_improvement_outlined,
-                          ),
-                          const SizedBox(width: 10),
-                          _categoryChip(
-                            label: 'Calisthenics',
-                            icon: Icons.accessibility_new_rounded,
-                          ),
-                          const SizedBox(width: 10),
-                          _categoryChip(
-                            label: 'Cardio',
-                            icon: Icons.monitor_heart_outlined,
-                          ),
+                          _categoryChip('Gym'),
+                          const SizedBox(width: 8),
+                          _categoryChip('Yoga'),
+                          const SizedBox(width: 8),
+                          _categoryChip('Calisthenics'),
+                          const SizedBox(width: 8),
+                          _categoryChip('Cardio'),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 34),
-                    const Text(
-                      'Recent Exercises',
+
+                    const SizedBox(height: 22),
+
+                    Text(
+                      'Recent Workouts',
                       style: TextStyle(
-                        color: darkText,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
+                        color: fitzaColors.primaryText,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 18),
+
+                    const SizedBox(height: 10),
+
                     StreamBuilder<List<WorkoutEntry>>(
-                      stream: WorkoutFirestoreService.instance
-                          .getWorkoutEntriesStream(),
+                      stream:
+                          WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
                           return _statusCard(
                             icon: Icons.error_outline_rounded,
-                            message: 'Could not load your exercise history.',
+                            message: 'Could not load your workout history.',
                             iconColor: Colors.red,
                           );
                         }
@@ -346,38 +326,41 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
                           return _statusCard(
                             icon: Icons.hourglass_top_rounded,
                             message: 'Loading your saved workouts...',
-                            iconColor: primaryBlue,
+                            iconColor: fitzaColors.primaryBlue,
                             isLoading: true,
                           );
                         }
 
-                        final allExercises =
-                            _buildExerciseSummaries(snapshot.data!);
+                        final allWorkouts = snapshot.data!;
+                        final workouts = _filteredWorkouts(allWorkouts);
 
-                        final exercises = _filteredExercises(allExercises);
-
-                        if (allExercises.isEmpty) {
+                        if (allWorkouts.isEmpty) {
                           return _statusCard(
                             icon: Icons.fitness_center_outlined,
                             message:
-                                'Save a workout to see your exercise history.',
-                            iconColor: greyText,
+                                'Save a workout to see your workout history.',
+                            iconColor: fitzaColors.secondaryText,
                           );
                         }
 
-                        if (exercises.isEmpty) {
+                        if (workouts.isEmpty) {
                           return _statusCard(
                             icon: Icons.search_off_outlined,
-                            message:
-                                'No $_selectedCategory exercises found.',
-                            iconColor: greyText,
+                            message: 'No $_selectedCategory workouts found.',
+                            iconColor: fitzaColors.secondaryText,
                           );
                         }
 
                         return Column(
-                          children: exercises
-                              .map(_exerciseCard)
-                              .toList(),
+                          children: List.generate(
+                            workouts.length,
+                            (index) => Padding(
+                              padding: EdgeInsets.only(
+                                bottom: index == workouts.length - 1 ? 0 : 10,
+                              ),
+                              child: _workoutCard(workouts[index]),
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -391,56 +374,13 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     );
   }
 
-  Widget _statusCard({
-    required IconData icon,
-    required String message,
-    required Color iconColor,
-    bool isLoading = false,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          if (isLoading)
-            const SizedBox(
-              height: 42,
-              width: 42,
-              child: CircularProgressIndicator(),
-            )
-          else
-            Icon(
-              icon,
-              color: iconColor,
-              size: 42,
-            ),
-          const SizedBox(height: 14),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: darkText,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _categoryChip({
-    required String label,
-    required IconData icon,
-  }) {
+  Widget _categoryChip(String label) {
+    final fitzaColors = _colors(context);
     final isSelected = _selectedCategory == label;
+    final color = _categoryColor(label);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(15),
       onTap: () {
         setState(() {
           _selectedCategory = label;
@@ -448,30 +388,32 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 14,
+          horizontal: 14,
+          vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? primaryBlue : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? color : fitzaColors.surface,
+          borderRadius: BorderRadius.circular(15),
           border: Border.all(
-            color: isSelected ? primaryBlue : const Color(0xFFB9C9E6),
+            color: isSelected ? color : fitzaColors.border,
           ),
         ),
         child: Row(
           children: [
             Icon(
-              icon,
-              color: isSelected ? Colors.white : primaryBlue,
-              size: 24,
+              _categoryIcon(label),
+              color: isSelected ? fitzaColors.textOnBlue : color,
+              size: 19,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : darkText,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? fitzaColors.textOnBlue
+                    : fitzaColors.primaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -480,93 +422,90 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
     );
   }
 
-  Widget _exerciseCard(_ExerciseSummary exercise) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+  Widget _workoutCard(WorkoutEntry workout) {
+    final fitzaColors = _colors(context);
+    final color = _categoryColor(workout.workoutType);
+
+    return Material(
+      color: fitzaColors.surface,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: () => _openExerciseDetail(exercise),
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openWorkoutDetail(workout),
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: const Color(0xFFC8D9F6),
-            ),
-            boxShadow: const [
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
               BoxShadow(
-                color: Color(0x0D000000),
+                color: _isDark(context)
+                    ? const Color(0x33000000)
+                    : const Color(0x0F000000),
                 blurRadius: 10,
-                offset: Offset(0, 4),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
-              Container(
-                height: 72,
-                width: 72,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF3FF),
-                  borderRadius: BorderRadius.circular(18),
-                ),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: _softBackground(context, color),
                 child: Icon(
-                  _categoryIcon(exercise.category),
-                  color: primaryBlue,
-                  size: 38,
+                  _categoryIcon(workout.workoutType),
+                  color: color,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 18),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      exercise.name,
-                      style: const TextStyle(
-                        color: darkText,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                      workout.workoutName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          color: greyText,
-                          fontSize: 16,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: exercise.category,
-                            style: const TextStyle(
-                              color: primaryBlue,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '  •  ${_lastLoggedText(exercise.recordedAt)}',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      exercise.details,
-                      style: const TextStyle(
-                        color: darkText,
-                        fontSize: 17,
+                      _workoutDetails(workout),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: fitzaColors.secondaryText,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: primaryBlue,
-                size: 34,
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _lastLoggedText(workout.recordedAt),
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: fitzaColors.secondaryText,
+                    size: 22,
+                  ),
+                ],
               ),
             ],
           ),
@@ -574,18 +513,103 @@ class _ExerciseHistoryScreenState extends State<ExerciseHistoryScreen> {
       ),
     );
   }
-}
 
-class _ExerciseSummary {
-  final String name;
-  final String category;
-  final String details;
-  final DateTime recordedAt;
+  Widget _statusCard({
+    required IconData icon,
+    required String message,
+    required Color iconColor,
+    bool isLoading = false,
+  }) {
+    final fitzaColors = _colors(context);
 
-  const _ExerciseSummary({
-    required this.name,
-    required this.category,
-    required this.details,
-    required this.recordedAt,
-  });
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: _cardDecoration(context),
+      child: Column(
+        children: [
+          if (isLoading)
+            SizedBox(
+              height: 34,
+              width: 34,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: fitzaColors.primaryBlue,
+              ),
+            )
+          else
+            Icon(
+              icon,
+              color: iconColor,
+              size: 34,
+            ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _searchInputDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return InputDecoration(
+      hintText: 'Search workouts or exercises',
+      hintStyle: TextStyle(
+        color: fitzaColors.secondaryText,
+        fontSize: 14.5,
+        fontWeight: FontWeight.w500,
+      ),
+      prefixIcon: Icon(
+        Icons.search_rounded,
+        color: fitzaColors.secondaryText,
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 13,
+      ),
+      filled: true,
+      fillColor: fitzaColors.inputSurface,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.border,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: fitzaColors.primaryBlue,
+          width: 1.7,
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final fitzaColors = _colors(context);
+
+    return BoxDecoration(
+      color: fitzaColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [
+        BoxShadow(
+          color: _isDark(context)
+              ? const Color(0x33000000)
+              : const Color(0x0F000000),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
 }

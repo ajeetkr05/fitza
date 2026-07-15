@@ -18,6 +18,13 @@ class UserProfile {
   final bool darkModeEnabled;
   final bool notificationsEnabled;
   final bool workoutRemindersEnabled;
+  
+  // Custom target values
+  final double? targetCalories;
+  final double? targetProtein;
+  final double? targetCarbs;
+  final double? targetFat;
+  final int? targetWaterMl;
 
   const UserProfile({
     required this.uid,
@@ -37,6 +44,11 @@ class UserProfile {
     required this.darkModeEnabled,
     required this.notificationsEnabled,
     required this.workoutRemindersEnabled,
+    this.targetCalories,
+    this.targetProtein,
+    this.targetCarbs,
+    this.targetFat,
+    this.targetWaterMl,
   });
 
   factory UserProfile.fromFirestore(
@@ -66,6 +78,11 @@ class UserProfile {
       notificationsEnabled: data['notificationsEnabled'] as bool? ?? true,
       workoutRemindersEnabled:
           data['workoutRemindersEnabled'] as bool? ?? true,
+      targetCalories: (data['targetCalories'] as num?)?.toDouble(),
+      targetProtein: (data['targetProtein'] as num?)?.toDouble(),
+      targetCarbs: (data['targetCarbs'] as num?)?.toDouble(),
+      targetFat: (data['targetFat'] as num?)?.toDouble(),
+      targetWaterMl: (data['targetWaterMl'] as num?)?.toInt(),
     );
   }
 }

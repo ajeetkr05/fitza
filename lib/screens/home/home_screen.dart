@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../main.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import '../../widgets/fitza_header.dart';
 
@@ -17,243 +19,114 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const Color primaryBlue = Color(0xFF1555C0);
+  static const Color successGreen = Color(0xFF2E7D32);
+  static const Color calorieOrange = Color(0xFFFF7A00);
+
+  FitzaThemeColors _colors(BuildContext context) {
+    return Theme.of(context).extension<FitzaThemeColors>()!;
+  }
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softBackground(BuildContext context, Color color) {
+    return color.withValues(alpha: _isDark(context) ? 0.20 : 0.12);
+  }
+
+  void _showComingSoon(String title) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title will be connected later.'),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF1555C0);
-    const darkText = Color(0xFF0B1B4D);
-    const screenBackground = Color(0xFFF5F5F5);
+    final fitzaColors = _colors(context);
 
     return Scaffold(
-      backgroundColor: screenBackground,
+      backgroundColor: fitzaColors.background,
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: widget.selectedIndex,
         onTap: widget.onTabChanged,
-        ),
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FitzaHeader(
+                trailing: FitzaHeaderIconButton(
+                  icon: Icons.notifications_none_rounded,
+                ),
+              ),
+
+              const SizedBox(height: 22),
+
+              Text(
+                'Good morning, Alex',
+                style: TextStyle(
+                  color: fitzaColors.primaryText,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+
+              const SizedBox(height: 3),
+
+              Text(
+                'Earn it, Every day',
+                style: TextStyle(
+                  color: fitzaColors.primaryBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              _sectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const FitzaHeader(
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          FitzaHeaderIconButton(
-                            icon: Icons.dark_mode_outlined,
-                          ),
-                          SizedBox(width: 10),
-                          FitzaHeaderIconButton(
-                            icon: Icons.notifications_none_rounded,
-                          ),
-                        ],
-                      ),
+                    _sectionHeader(
+                      title: 'Today’s Summary',
+                      actionText: 'View All',
+                      onTap: () => _showComingSoon('Today summary'),
                     ),
-
-                    const SizedBox(height: 34),
-
-                    const Text(
-                      'Good morning, Alex',
-                      style: TextStyle(
-                        color: darkText,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    const Text(
-                      'Earn it, Every day',
-                      style: TextStyle(
-                        color: primaryBlue,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    _sectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _sectionHeader(
-                            title: 'Today’s Summary',
-                            actionText: 'View All',
-                          ),
-                          const SizedBox(height: 22),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _summaryItem(
-                                  icon: Icons.directions_walk_rounded,
-                                  iconColor: Color(0xFF1976D2),
-                                  title: 'Steps',
-                                  value: '8,245',
-                                  subtitle: '/ 10,000',
-                                ),
-                              ),
-                              Expanded(
-                                child: _summaryItem(
-                                  icon: Icons.local_fire_department_outlined,
-                                  iconColor: Color(0xFFFF7A00),
-                                  title: 'Calories Burned',
-                                  value: '540',
-                                  subtitle: 'kcal',
-                                ),
-                              ),
-                              Expanded(
-                                child: _summaryItem(
-                                  icon: Icons.timer_outlined,
-                                  iconColor: Color(0xFF2E7D32),
-                                  title: 'Active Minutes',
-                                  value: '62',
-                                  subtitle: '/ 60 min',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
                     const SizedBox(height: 18),
-
-                    _sectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Today’s Workout',
-                            style: TextStyle(
-                              color: darkText,
-                              fontSize: 21,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          const Text(
-                            'Full Body Strength',
-                            style: TextStyle(
-                              color: darkText,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _workoutTag(
-                                icon: Icons.schedule_outlined,
-                                label: '45 min',
-                              ),
-                              _workoutTag(
-                                icon: Icons.bar_chart_rounded,
-                                label: 'Moderate',
-                              ),
-                              _workoutTag(
-                                icon: Icons.fitness_center_outlined,
-                                label: 'Equipment',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryBlue,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: const Text(
-                                'Start Workout',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    _sectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _sectionHeader(
-                            title: 'Your Progress',
-                            actionText: 'View Progress',
-                          ),
-                          const SizedBox(height: 18),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _progressMiniCard(
-                                  icon: Icons.trending_up_rounded,
-                                  title: 'Weight',
-                                  value: '72.4 kg',
-                                  subtitle: '-1.2 kg this week',
-                                  iconColor: Color(0xFF1555C0),
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: _progressMiniCard(
-                                  icon: Icons.trending_up_rounded,
-                                  title: 'Streak',
-                                  value: '12 days',
-                                  subtitle: 'Keep it up!',
-                                  iconColor: Color(0xFF2E7D32),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    const Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        color: darkText,
-                        fontSize: 21,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
                     Row(
                       children: [
                         Expanded(
-                          child: _quickAction(
-                            icon: Icons.restaurant_outlined,
-                            label: 'Log Meal',
+                          child: _summaryItem(
+                            icon: Icons.directions_walk_rounded,
+                            iconColor: primaryBlue,
+                            title: 'Steps',
+                            value: '8,245',
+                            subtitle: '/ 10,000',
                           ),
                         ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: _quickAction(
-                            icon: Icons.monitor_weight_outlined,
-                            label: 'Add Weight',
+                          child: _summaryItem(
+                            icon: Icons.local_fire_department_outlined,
+                            iconColor: calorieOrange,
+                            title: 'Calories',
+                            value: '540',
+                            subtitle: 'kcal',
+                          ),
+                        ),
+                        Expanded(
+                          child: _summaryItem(
+                            icon: Icons.timer_outlined,
+                            iconColor: successGreen,
+                            title: 'Active',
+                            value: '62',
+                            subtitle: '/ 60 min',
                           ),
                         ),
                       ],
@@ -261,44 +134,177 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 14),
+
+              _sectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today’s Workout',
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Full Body Strength',
+                      style: TextStyle(
+                        color: fitzaColors.primaryText,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _workoutTag(
+                          icon: Icons.schedule_outlined,
+                          label: '45 min',
+                        ),
+                        _workoutTag(
+                          icon: Icons.bar_chart_rounded,
+                          label: 'Moderate',
+                        ),
+                        _workoutTag(
+                          icon: Icons.fitness_center_outlined,
+                          label: 'Equipment',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () => _showComingSoon('Start workout'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: fitzaColors.primaryBlue,
+                          foregroundColor: fitzaColors.textOnBlue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: _isDark(context) ? 0 : 2,
+                        ),
+                        child: Text(
+                          'Start Workout',
+                          style: TextStyle(
+                            color: fitzaColors.textOnBlue,
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              _sectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _sectionHeader(
+                      title: 'Your Progress',
+                      actionText: 'View Progress',
+                      onTap: () => _showComingSoon('Progress'),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _progressMiniCard(
+                            icon: Icons.trending_up_rounded,
+                            title: 'Weight',
+                            value: '72.4 kg',
+                            subtitle: '-1.2 kg this week',
+                            iconColor: primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _progressMiniCard(
+                            icon: Icons.local_fire_department_outlined,
+                            title: 'Streak',
+                            value: '12 days',
+                            subtitle: 'Keep it up!',
+                            iconColor: successGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              Text(
+                'Quick Actions',
+                style: TextStyle(
+                  color: fitzaColors.primaryText,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _quickAction(
+                      icon: Icons.restaurant_outlined,
+                      label: 'Log Meal',
+                      onTap: () => _showComingSoon('Log meal'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _quickAction(
+                      icon: Icons.monitor_weight_outlined,
+                      label: 'Add Weight',
+                      onTap: () => _showComingSoon('Add weight'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _headerIcon(IconData icon) {
-    return Container(
-      height: 46,
-      width: 46,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Icon(icon, color: const Color(0xFF0B1B4D)),
-    );
-  }
-
   Widget _sectionCard({required Widget child}) {
+    final fitzaColors = _colors(context);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        color: fitzaColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: fitzaColors.border,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 12,
-            offset: Offset(0, 5),
+            color: _isDark(context)
+                ? const Color(0x33000000)
+                : const Color(0x0F000000),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -309,29 +315,48 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _sectionHeader({
     required String title,
     required String actionText,
+    required VoidCallback onTap,
   }) {
+    final fitzaColors = _colors(context);
+
     return Row(
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF0B1B4D),
-            fontSize: 21,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            color: fitzaColors.primaryText,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
           ),
         ),
         const Spacer(),
-        Text(
-          actionText,
-          style: const TextStyle(
-            color: Color(0xFF1555C0),
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 4,
+              vertical: 4,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  actionText,
+                  style: TextStyle(
+                    color: fitzaColors.primaryBlue,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: fitzaColors.primaryBlue,
+                  size: 22,
+                ),
+              ],
+            ),
           ),
-        ),
-        const Icon(
-          Icons.chevron_right_rounded,
-          color: Color(0xFF1555C0),
         ),
       ],
     );
@@ -344,36 +369,47 @@ class _HomeScreenState extends State<HomeScreen> {
     required String value,
     required String subtitle,
   }) {
+    final fitzaColors = _colors(context);
+
     return Column(
       children: [
         CircleAvatar(
-          radius: 24,
-          backgroundColor: iconColor.withValues(alpha: 0.12),
-          child: Icon(icon, color: iconColor, size: 28),
+          radius: 22,
+          backgroundColor: _softBackground(context, iconColor),
+          child: Icon(
+            icon,
+            color: iconColor,
+            size: 25,
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 9),
         Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF5B6475),
-            fontSize: 13,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: fitzaColors.secondaryText,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            color: Color(0xFF0B1B4D),
-            fontSize: 23,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            color: fitzaColors.primaryText,
+            fontSize: 21,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
           ),
         ),
         Text(
           subtitle,
-          style: const TextStyle(
-            color: Color(0xFF5B6475),
-            fontSize: 13,
+          style: TextStyle(
+            color: fitzaColors.secondaryText,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -384,27 +420,32 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required String label,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F8FC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE1E7F0)),
+        color: fitzaColors.inputSurface,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: fitzaColors.border,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             icon,
-            size: 18,
-            color: const Color(0xFF5B6475),
+            size: 17,
+            color: fitzaColors.secondaryText,
           ),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF45536A),
-              fontSize: 14,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -419,41 +460,55 @@ class _HomeScreenState extends State<HomeScreen> {
     required String subtitle,
     required Color iconColor,
   }) {
+    final fitzaColors = _colors(context);
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FBFE),
+        color: fitzaColors.inputSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE1E7F0)),
+        border: Border.all(
+          color: fitzaColors.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: iconColor, size: 28),
-          const SizedBox(height: 10),
+          Icon(
+            icon,
+            color: iconColor,
+            size: 25,
+          ),
+          const SizedBox(height: 9),
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF5B6475),
-              fontSize: 14,
+            style: TextStyle(
+              color: fitzaColors.secondaryText,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 3),
           Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFF0B1B4D),
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: iconColor,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -464,31 +519,41 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _quickAction({
     required IconData icon,
     required String label,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE1E7F0)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: const Color(0xFF1555C0),
-            size: 28,
+    final fitzaColors = _colors(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: fitzaColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: fitzaColors.border,
           ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF0B1B4D),
-              fontWeight: FontWeight.w600,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: fitzaColors.primaryBlue,
+              size: 24,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: fitzaColors.primaryText,
+                fontWeight: FontWeight.w800,
+                fontSize: 14.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

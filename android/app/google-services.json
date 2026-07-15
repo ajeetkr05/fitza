@@ -12,7 +12,20 @@
           "package_name": "com.example.fitza"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "968571437373-4f2q9a4emuss1tln2ro8v20nu5jhmc9m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fitza",
+            "certificate_hash": "d7a4985cc2da7463f7978442989ae8295896f715"
+          }
+        },
+        {
+          "client_id": "968571437373-3gkm8cf1up6dap40nqdrk3stcm8i2ehj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCx9ZcftRwUGS2ivYQJ7dwcFPON9tp2yc4"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "968571437373-3gkm8cf1up6dap40nqdrk3stcm8i2ehj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "968571437373-f6lm4hjrsssguvljrqp28h8c3367s5jr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.fitza"
+              }
+            }
+          ]
         }
       }
     }
