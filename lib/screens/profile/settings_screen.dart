@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../../models/profile/user_profile.dart';
 import '../../services/auth/auth_service.dart';
 import '../../services/profile/profile_firestore_service.dart';
+import '../auth/auth_gate.dart';
 
 class SettingsScreen extends StatefulWidget {
   final UserProfile profile;
@@ -18,8 +19,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color successGreen = Color(0xFF2E7D32);
   static const Color dangerRed = Color(0xFFD32F2F);
 
   late UserProfile _profile;
@@ -28,10 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _profile = widget.profile;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      FitzaThemeController.setDarkModeEnabled(_profile.darkModeEnabled);
-    });
   }
 
   FitzaThemeColors _colors(BuildContext context) {
@@ -59,10 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     });
 
-    if (fieldName == 'darkModeEnabled') {
-      FitzaThemeController.setDarkModeEnabled(value);
-    }
-
     try {
       await ProfileFirestoreService.instance.updatePreference(
         fieldName: fieldName,
@@ -77,18 +68,262 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _profile = previousProfile;
       });
 
-      if (fieldName == 'darkModeEnabled') {
-        FitzaThemeController.setDarkModeEnabled(
-          previousProfile.darkModeEnabled,
-        );
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not update setting. Please try again.'),
         ),
       );
     }
+  }
+
+  Future<void> _updateThemeMode(String themeMode) async {
+    if (themeMode == _profile.themeMode) {
+      return;
+    }
+
+    final previousProfile = _profile;
+
+    setState(() {
+      _profile = _profile.copyWithThemeMode(themeMode);
+    });
+
+    FitzaThemeController.setThemeMode(themeMode);
+
+    try {
+      await ProfileFirestoreService.instance.updateThemeMode(themeMode);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _profile = previousProfile;
+      });
+
+      FitzaThemeController.setThemeMode(previousProfile.themeMode);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update app theme. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  String _themeModeLabel(String themeMode) {
+    return switch (themeMode) {
+      UserProfile.lightTheme => 'Light mode',
+      UserProfile.darkTheme => 'Dark mode',
+      _ => 'Use device setting',
+    };
+  }
+
+  Future<void> _showThemeModeSheet() async {
+    final selectedThemeMode = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final fitzaColors = _colors(sheetContext);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: fitzaColors.surface,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(24),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      height: 4,
+                      width: 42,
+                      decoration: BoxDecoration(
+                        color: fitzaColors.border,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'App Theme',
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose how Fitza should appear on this device.',
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _themeModeOption(
+                    context: sheetContext,
+                    value: UserProfile.systemTheme,
+                    title: 'Use device setting',
+                    subtitle: 'Follow your phone light or dark mode',
+                    icon: Icons.settings_brightness_outlined,
+                    selectedValue: _profile.themeMode,
+                  ),
+                  const SizedBox(height: 8),
+                  _themeModeOption(
+                    context: sheetContext,
+                    value: UserProfile.lightTheme,
+                    title: 'Light mode',
+                    subtitle: 'Always use the light theme',
+                    icon: Icons.light_mode_outlined,
+                    selectedValue: _profile.themeMode,
+                  ),
+                  const SizedBox(height: 8),
+                  _themeModeOption(
+                    context: sheetContext,
+                    value: UserProfile.darkTheme,
+                    title: 'Dark mode',
+                    subtitle: 'Always use the dark theme',
+                    icon: Icons.dark_mode_outlined,
+                    selectedValue: _profile.themeMode,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted ||
+        selectedThemeMode == null ||
+        selectedThemeMode == _profile.themeMode) {
+      return;
+    }
+
+    await _updateThemeMode(selectedThemeMode);
+  }
+
+  Widget _themeModeOption({
+    required BuildContext context,
+    required String value,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required String selectedValue,
+  }) {
+    final fitzaColors = _colors(context);
+    final isSelected = value == selectedValue;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(15),
+      onTap: () async {
+        if (value != selectedValue) {
+          // Change the theme while the bottom sheet is still covering
+          // the Settings screen. This prevents the opposite-theme flash
+          // during the sheet-closing animation.
+          FitzaThemeController.setThemeMode(value);
+
+          await WidgetsBinding.instance.endOfFrame;
+        }
+
+        if (context.mounted) {
+          Navigator.pop(context, value);
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? fitzaColors.primaryBlue.withValues(alpha: 0.12)
+              : fitzaColors.inputSurface,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: isSelected
+                ? fitzaColors.primaryBlue
+                : fitzaColors.border,
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 38,
+              width: 38,
+              decoration: BoxDecoration(
+                color: fitzaColors.primaryBlue.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: fitzaColors.primaryBlue,
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: fitzaColors.primaryText,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: fitzaColors.secondaryText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              height: 22,
+              width: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? fitzaColors.primaryBlue
+                    : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? fitzaColors.primaryBlue
+                      : fitzaColors.secondaryText,
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check_rounded,
+                      color: fitzaColors.textOnBlue,
+                      size: 15,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _signOut(BuildContext context) async {
@@ -136,6 +371,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       await AuthService.instance.signOut();
+
+      if (!context.mounted) {
+        return;
+      }
+
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const AuthGate(),
+        ),
+        (route) => false,
+      );
     } catch (_) {
       if (!context.mounted) {
         return;
@@ -582,10 +828,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 16),
 
-              _accountHeader(),
-
-              const SizedBox(height: 14),
-
               _sectionCard(
                 title: 'Account',
                 children: [
@@ -617,15 +859,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _sectionCard(
                 title: 'App Preferences',
                 children: [
-                  _switchRow(
-                    icon: Icons.dark_mode_outlined,
-                    title: 'Dark Mode',
-                    subtitle: 'Use Fitza in dark theme',
-                    value: _profile.darkModeEnabled,
-                    onChanged: (value) => _updatePreference(
-                      fieldName: 'darkModeEnabled',
-                      value: value,
-                    ),
+                  _navigationRow(
+                    icon: Icons.palette_outlined,
+                    title: 'App Theme',
+                    subtitle: _themeModeLabel(_profile.themeMode),
+                    onTap: _showThemeModeSheet,
                   ),
                   _divider(),
                   _switchRow(
@@ -777,59 +1015,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(width: 48),
       ],
-    );
-  }
-
-  Widget _accountHeader() {
-    final fitzaColors = _colors(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 27,
-            backgroundColor: _softBackground(context, fitzaColors.primaryBlue),
-            child: Icon(
-              Icons.person_rounded,
-              color: fitzaColors.primaryBlue,
-              size: 31,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _profile.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: fitzaColors.primaryText,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _profile.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: fitzaColors.secondaryText,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1076,13 +1261,46 @@ extension _SettingsProfileCopy on UserProfile {
       dietaryPreference: dietaryPreference,
       fitnessExperience: fitnessExperience,
       profileSetupCompleted: profileSetupCompleted,
-      darkModeEnabled:
-          fieldName == 'darkModeEnabled' ? value : darkModeEnabled,
+      themeMode: themeMode,
+      darkModeEnabled: darkModeEnabled,
       notificationsEnabled:
           fieldName == 'notificationsEnabled' ? value : notificationsEnabled,
       workoutRemindersEnabled: fieldName == 'workoutRemindersEnabled'
           ? value
           : workoutRemindersEnabled,
+      targetCalories: targetCalories,
+      targetProtein: targetProtein,
+      targetCarbs: targetCarbs,
+      targetFat: targetFat,
+      targetWaterMl: targetWaterMl,
+    );
+  }
+
+  UserProfile copyWithThemeMode(String updatedThemeMode) {
+    return UserProfile(
+      uid: uid,
+      email: email,
+      displayName: displayName,
+      age: age,
+      heightCm: heightCm,
+      weightKg: weightKg,
+      goal: goal,
+      activityLevel: activityLevel,
+      gender: gender,
+      location: location,
+      workoutPreference: workoutPreference,
+      dietaryPreference: dietaryPreference,
+      fitnessExperience: fitnessExperience,
+      profileSetupCompleted: profileSetupCompleted,
+      themeMode: updatedThemeMode,
+      darkModeEnabled: updatedThemeMode == UserProfile.darkTheme,
+      notificationsEnabled: notificationsEnabled,
+      workoutRemindersEnabled: workoutRemindersEnabled,
+      targetCalories: targetCalories,
+      targetProtein: targetProtein,
+      targetCarbs: targetCarbs,
+      targetFat: targetFat,
+      targetWaterMl: targetWaterMl,
     );
   }
 
@@ -1108,9 +1326,15 @@ extension _SettingsProfileCopy on UserProfile {
       dietaryPreference: dietaryPreference,
       fitnessExperience: fitnessExperience,
       profileSetupCompleted: profileSetupCompleted,
+      themeMode: themeMode,
       darkModeEnabled: darkModeEnabled,
       notificationsEnabled: notificationsEnabled,
       workoutRemindersEnabled: workoutRemindersEnabled,
+      targetCalories: targetCalories,
+      targetProtein: targetProtein,
+      targetCarbs: targetCarbs,
+      targetFat: targetFat,
+      targetWaterMl: targetWaterMl,
     );
   }
 }
