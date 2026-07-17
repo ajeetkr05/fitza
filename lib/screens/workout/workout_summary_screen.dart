@@ -39,6 +39,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
         // saveWorkout only recognises Gym/Cardio/other, and every exercise
         // here is a sets/reps strength exercise.
         workoutType: 'Gym',
+        workoutName: recommendation.title,
         duration: '${actualDuration.inMinutes} min',
         notes: 'Completed via personalized recommendation: ${recommendation.title}',
         exercises: recommendation.exercises.map((prescription) {

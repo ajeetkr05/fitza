@@ -3,6 +3,20 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../widgets/app_bottom_navigation.dart';
 import '../../widgets/fitza_header.dart';
+import '../../models/profile/user_profile.dart';
+import '../../models/progress/workout_entry.dart';
+import '../../services/profile/profile_firestore_service.dart';
+import '../../services/progress/workout_firestore_service.dart';
+import '../../services/progress/weight_firestore_service.dart';
+import '../../models/progress/weight_entry.dart';
+import '../../models/workout/calorie_summary.dart';
+import '../../models/Nutrition/meal_entry.dart';
+import '../../services/Nutrition/nutrition_firestore_service.dart';
+import '../../services/workout/recommendation_service.dart';
+import '../../models/workout/daily_recommendation.dart';
+import '../workout/workout_details_screen.dart';
+import '../progress/add_weight/add_weight_screen.dart';
+import '../Nutrition/add_meal_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final int selectedIndex;
@@ -43,245 +57,457 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String get _timeOfDayGreeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  /// Consecutive-day workout streak, counted backward from today. If no
+  /// workout was logged today, the streak counts backward from yesterday
+  /// instead (so a user who hasn't worked out YET today doesn't see their
+  /// streak drop to 0 before the day is even over).
+  int _computeStreak(List<WorkoutEntry> workouts) {
+    if (workouts.isEmpty) return 0;
+
+    final workoutDates = workouts
+        .map((w) => DateTime(w.recordedAt.year, w.recordedAt.month, w.recordedAt.day))
+        .toSet();
+
+    final today = DateTime.now();
+    var cursor = DateTime(today.year, today.month, today.day);
+
+    if (!workoutDates.contains(cursor)) {
+      cursor = cursor.subtract(const Duration(days: 1));
+      if (!workoutDates.contains(cursor)) return 0;
+    }
+
+    var streak = 0;
+    while (workoutDates.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  /// Returns (latestWeightKg, changeSinceLastWeek) or null if no entries.
+  /// getWeightEntriesStream() orders ascending, so the latest is last.
+  /// "This week" comparison uses the entry closest to (but not after) 7
+  /// days before the latest entry's date - falls back to the earliest
+  /// entry if the full history is shorter than a week.
+  (double, double)? _computeWeightSummary(List<WeightEntry> entries) {
+    if (entries.isEmpty) return null;
+
+    final sorted = [...entries]..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+    final latest = sorted.last;
+    final weekAgoCutoff = latest.recordedAt.subtract(const Duration(days: 7));
+
+    WeightEntry? weekAgoEntry;
+    for (final entry in sorted) {
+      if (entry.recordedAt.isBefore(weekAgoCutoff) || entry.recordedAt.isAtSameMomentAs(weekAgoCutoff)) {
+        weekAgoEntry = entry; // keeps advancing to the closest one before cutoff
+      }
+    }
+    weekAgoEntry ??= sorted.first; // history shorter than a week - compare to earliest available
+
+    return (latest.weightKg, latest.weightKg - weekAgoEntry.weightKg);
+  }
+
+  /// Returns (steps, caloriesBurned, activeMinutes) for today.
+  ///
+  /// Steps and calories come from CardioWorkoutScreen's saved exercise data
+  /// ('steps' / 'caloriesBurned' fields, either user-entered or estimated
+  /// there) - only Cardio-type entries carry these fields. Active minutes
+  /// sums durationMinutes across ALL of today's workouts regardless of
+  /// type, as a reasonable proxy for "time spent active today".
+  (int, int, int) _computeTodayCardioStats(List<WorkoutEntry> workouts) {
+    final today = DateTime.now();
+    final todaysWorkouts = workouts.where((w) {
+      return w.recordedAt.year == today.year &&
+          w.recordedAt.month == today.month &&
+          w.recordedAt.day == today.day;
+    }).toList();
+
+    var steps = 0;
+    var calories = 0;
+    var activeMinutes = 0;
+
+    for (final workout in todaysWorkouts) {
+      activeMinutes += workout.durationMinutes;
+
+      if (workout.workoutType != 'Cardio') continue;
+
+      for (final exercise in workout.exercises) {
+        final exerciseSteps = exercise['steps'];
+        final exerciseCalories = exercise['caloriesBurned'];
+        if (exerciseSteps is num) steps += exerciseSteps.toInt();
+        if (exerciseCalories is num) calories += exerciseCalories.toInt();
+      }
+    }
+
+    return (steps, calories, activeMinutes);
+  }
+
+   String get _todayDateKey {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+ 
+  /// Calories remaining today = target - consumed so far, clamped to 0
+  /// (never negative - AddMealScreen expects a sensible budget, not a
+  /// deficit number). Uses the user's personalized target if set, falling
+  /// back to the shared default otherwise (see calorie_summary.dart for
+  /// why that default exists).
+  double _computeRemainingCalories(UserProfile? profile, List<MealEntry> todaysMeals) {
+    final target = profile?.targetCalories ?? kDefaultTargetCalories;
+    final consumed = todaysMeals.fold<double>(0, (sum, meal) => sum + meal.totalCalories);
+    final remaining = target - consumed;
+    return remaining < 0 ? 0 : remaining;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final fitzaColors = _colors(context);
-
     return Scaffold(
-      backgroundColor: fitzaColors.background,
+      backgroundColor: _colors(context).background,
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: widget.selectedIndex,
         onTap: widget.onTabChanged,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: StreamBuilder<UserProfile>(
+          stream: ProfileFirestoreService.instance.getProfileStream(),
+          builder: (context, profileSnapshot) {
+            final profile = profileSnapshot.data;
+
+            return StreamBuilder<List<WorkoutEntry>>(
+              stream: WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
+              builder: (context, workoutsSnapshot) {
+                final workouts = workoutsSnapshot.data ?? [];
+                final recentWorkouts = workouts.take(5).toList();
+                final streak = _computeStreak(workouts);
+                final cardioStats = _computeTodayCardioStats(workouts);
+
+                DailyRecommendation? recommendation;
+                if (profile != null) {
+                  recommendation = RecommendationService().generateRecommendation(
+                    profile: profile,
+                    recentWorkouts: recentWorkouts,
+                  );
+                }
+
+                return StreamBuilder<List<WeightEntry>>(
+                  stream: WeightFirestoreService.instance.getWeightEntriesStream(),
+                  builder: (context, weightSnapshot) {
+                    final weightSummary = _computeWeightSummary(weightSnapshot.data ?? []);
+
+                    return StreamBuilder<List<MealEntry>>(
+                    stream: NutritionFirestoreService.instance.getMealsStream(_todayDateKey),
+                    builder: (context, mealsSnapshot) {
+                      final remainingCalories = _computeRemainingCalories(
+                        profile,
+                        mealsSnapshot.data ?? [],
+                      );
+
+                    return _content(context, profile, recommendation, streak, weightSummary, cardioStats, remainingCalories);
+                  },
+                );
+              },
+            );
+          },
+        );
+          },
+    ),
+      ),
+    );
+  }
+
+  Widget _content(
+    BuildContext context,
+    UserProfile? profile,
+    DailyRecommendation? recommendation,
+    int streak,
+    (double, double)? weightSummary,
+    (int, int, int) cardioStats,
+    double remainingCalories,
+  ) {
+    final fitzaColors = _colors(context);
+    final displayName = (profile?.displayName.isNotEmpty ?? false)
+        ? profile!.displayName
+        : 'there';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FitzaHeader(
+            trailing: FitzaHeaderIconButton(
+              icon: Icons.notifications_none_rounded,
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          Text(
+            '$_timeOfDayGreeting, $displayName',
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 27,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
+          ),
+
+          const SizedBox(height: 3),
+
+          Text(
+            'Earn it, Every day',
+            style: TextStyle(
+              color: fitzaColors.primaryBlue,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          _sectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                                      Text(
+                        'Today’s Summary',
+                        style: TextStyle(
+                          color: fitzaColors.primaryText,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                        ),
+                        ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    // Steps/Calories come from Cardio-logged workouts only
+                    // (CardioWorkoutScreen's steps/caloriesBurned fields) -
+                    // not from a device pedometer. Will read 0 on days with
+                    // no cardio logged, even if the user was actually active.
+                    Expanded(
+                      child: _summaryItem(
+                        icon: Icons.directions_walk_rounded,
+                        iconColor: primaryBlue,
+                        title: 'Steps',
+                        value: '${cardioStats.$1}',
+                        subtitle: 'today',
+                      ),
+                    ),
+                    Expanded(
+                      child: _summaryItem(
+                        icon: Icons.local_fire_department_outlined,
+                        iconColor: calorieOrange,
+                        title: 'Calories',
+                        value: '${cardioStats.$2}',
+                        subtitle: 'kcal burned',
+                      ),
+                    ),
+                    Expanded(
+                      child: _summaryItem(
+                        icon: Icons.timer_outlined,
+                        iconColor: successGreen,
+                        title: 'Active',
+                        value: '${cardioStats.$3}',
+                        subtitle: 'min today',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          _sectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Today’s Workout',
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  recommendation?.title ?? 'Loading...',
+                  style: TextStyle(
+                    color: fitzaColors.primaryText,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _workoutTag(
+                      icon: Icons.schedule_outlined,
+                      label: recommendation != null
+                          ? '${recommendation.durationMinutes} min'
+                          : '--',
+                    ),
+                    _workoutTag(
+                      icon: Icons.bar_chart_rounded,
+                      label: recommendation?.difficulty ?? '--',
+                    ),
+                    _workoutTag(
+                      icon: Icons.fitness_center_outlined,
+                      label: (recommendation?.exercises.any(
+                                (p) => p.exercise.equipmentTags.isNotEmpty,
+                              ) ??
+                              false)
+                          ? 'Equipment'
+                          : 'Bodyweight',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: recommendation == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => WorkoutDetailsScreen(
+                                  recommendation: recommendation!,
+                                ),
+                              ),
+                            );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: fitzaColors.primaryBlue,
+                      foregroundColor: fitzaColors.textOnBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: _isDark(context) ? 0 : 2,
+                    ),
+                    child: Text(
+                      'Start Workout',
+                      style: TextStyle(
+                        color: fitzaColors.textOnBlue,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          _sectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader(
+                  title: 'Your Progress',
+                  actionText: 'View Progress',
+                  onTap: () => widget.onTabChanged(3)
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _progressMiniCard(
+                        icon: Icons.trending_up_rounded,
+                        title: 'Weight',
+                        value: weightSummary != null
+                            ? '${weightSummary.$1.toStringAsFixed(1)} kg'
+                            : '--',
+                        subtitle: weightSummary != null
+                            ? '${weightSummary.$2 <= 0 ? '' : '+'}${weightSummary.$2.toStringAsFixed(1)} kg this week'
+                            : 'not logged yet',
+                        iconColor: primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _progressMiniCard(
+                        icon: Icons.local_fire_department_outlined,
+                        title: 'Streak',
+                        value: streak == 0 ? '0 days' : '$streak day${streak == 1 ? '' : 's'}',
+                        subtitle: streak > 0 ? 'Keep it up!' : 'Start today',
+                        iconColor: successGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Text(
+            'Quick Actions',
+            style: TextStyle(
+              color: fitzaColors.primaryText,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Row(
             children: [
-              const FitzaHeader(
-                trailing: FitzaHeaderIconButton(
-                  icon: Icons.notifications_none_rounded,
+              Expanded(
+                child: _quickAction(
+                  icon: Icons.restaurant_outlined,
+                  label: 'Log Meal',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddMealScreen(remainingCalories: remainingCalories),
+                          ),
+                        );
+                      },
                 ),
               ),
-
-              const SizedBox(height: 22),
-
-              Text(
-                'Good morning, Alex',
-                style: TextStyle(
-                  color: fitzaColors.primaryText,
-                  fontSize: 27,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _quickAction(
+                  icon: Icons.monitor_weight_outlined,
+                  label: 'Add Weight',
+                    onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddWeightScreen(),
+                          ),
+                        );
+                      },
                 ),
-              ),
-
-              const SizedBox(height: 3),
-
-              Text(
-                'Earn it, Every day',
-                style: TextStyle(
-                  color: fitzaColors.primaryBlue,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              _sectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionHeader(
-                      title: 'Today’s Summary',
-                      actionText: 'View All',
-                      onTap: () => _showComingSoon('Today summary'),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _summaryItem(
-                            icon: Icons.directions_walk_rounded,
-                            iconColor: primaryBlue,
-                            title: 'Steps',
-                            value: '8,245',
-                            subtitle: '/ 10,000',
-                          ),
-                        ),
-                        Expanded(
-                          child: _summaryItem(
-                            icon: Icons.local_fire_department_outlined,
-                            iconColor: calorieOrange,
-                            title: 'Calories',
-                            value: '540',
-                            subtitle: 'kcal',
-                          ),
-                        ),
-                        Expanded(
-                          child: _summaryItem(
-                            icon: Icons.timer_outlined,
-                            iconColor: successGreen,
-                            title: 'Active',
-                            value: '62',
-                            subtitle: '/ 60 min',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              _sectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Today’s Workout',
-                      style: TextStyle(
-                        color: fitzaColors.primaryText,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Full Body Strength',
-                      style: TextStyle(
-                        color: fitzaColors.primaryText,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _workoutTag(
-                          icon: Icons.schedule_outlined,
-                          label: '45 min',
-                        ),
-                        _workoutTag(
-                          icon: Icons.bar_chart_rounded,
-                          label: 'Moderate',
-                        ),
-                        _workoutTag(
-                          icon: Icons.fitness_center_outlined,
-                          label: 'Equipment',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () => _showComingSoon('Start workout'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: fitzaColors.primaryBlue,
-                          foregroundColor: fitzaColors.textOnBlue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: _isDark(context) ? 0 : 2,
-                        ),
-                        child: Text(
-                          'Start Workout',
-                          style: TextStyle(
-                            color: fitzaColors.textOnBlue,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              _sectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionHeader(
-                      title: 'Your Progress',
-                      actionText: 'View Progress',
-                      onTap: () => _showComingSoon('Progress'),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _progressMiniCard(
-                            icon: Icons.trending_up_rounded,
-                            title: 'Weight',
-                            value: '72.4 kg',
-                            subtitle: '-1.2 kg this week',
-                            iconColor: primaryBlue,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _progressMiniCard(
-                            icon: Icons.local_fire_department_outlined,
-                            title: 'Streak',
-                            value: '12 days',
-                            subtitle: 'Keep it up!',
-                            iconColor: successGreen,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Text(
-                'Quick Actions',
-                style: TextStyle(
-                  color: fitzaColors.primaryText,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _quickAction(
-                      icon: Icons.restaurant_outlined,
-                      label: 'Log Meal',
-                      onTap: () => _showComingSoon('Log meal'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _quickAction(
-                      icon: Icons.monitor_weight_outlined,
-                      label: 'Add Weight',
-                      onTap: () => _showComingSoon('Add weight'),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
