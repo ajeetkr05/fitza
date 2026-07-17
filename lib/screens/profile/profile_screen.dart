@@ -497,25 +497,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ageController.dispose();
   }
 
-Future<void> _showEditTargetsSheet(UserProfile profile) async {
-  final messenger = ScaffoldMessenger.of(context);
+  Future<void> _showEditTargetsSheet(UserProfile profile) async {
+    final messenger = ScaffoldMessenger.of(context);
 
-  final result = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) => _EditTargetsSheet(profile: profile),
-  );
-
-  if (result == true && mounted) {
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Nutrition targets updated successfully.'),
-        backgroundColor: successGreen,
-      ),
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _EditTargetsSheet(profile: profile),
     );
+
+    if (result == true && mounted) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Nutrition targets updated successfully.'),
+          backgroundColor: successGreen,
+        ),
+      );
+    }
   }
-}
 
 void _showComingSoon(String title) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -675,64 +675,62 @@ void _showComingSoon(String title) {
                               ),
                             ],
                           ),
-const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-_sectionCard(
-  title: 'Profile Actions',
-  children: [
-    _navigationRow(
-      icon: Icons.person_outline_rounded,
-      title: 'Edit Profile',
-      subtitle: 'Update your basic profile details',
-      onTap: () => _showEditProfileSheet(profile),
-    ),
-    _divider(),
-    _navigationRow(
-      icon: Icons.track_changes_rounded,
-      title: 'Update Fitness Goal',
-      subtitle: 'Change your goal and activity level',
-      onTap: () => _showEditProfileSheet(
-        profile,
-        focusGoal: true,
-      ),
-    ),
-    _divider(),
-    _navigationRow(
-      icon: Icons.local_fire_department_outlined,
-      title: 'Nutrition Targets',
-      subtitle: 'Set calories, macros and water goals',
-      onTap: () => _showEditTargetsSheet(profile),
-    ),
-    _divider(),
-    _navigationRow(
-      icon: Icons.fitness_center_outlined,
-      title: 'Workout History',
-      subtitle: 'View your saved workout sessions',
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const ExerciseHistoryScreen(),
-          ),
-        );
-      },
-    ),
-    _divider(),
-    _navigationRow(
-      icon: Icons.emoji_events_outlined,
-      title: 'View Achievements',
-      subtitle: 'Badges and milestones',
-      onTap: () => _showComingSoon('Achievements'),
-    ),
-    _divider(),
-    _navigationRow(
-      icon: Icons.leaderboard_outlined,
-      title: 'View Personal Records',
-      subtitle: 'Best lifts and workout records',
-      onTap: () => _showComingSoon('Personal records'),
-    ),
-  ],
-),
+                          _sectionCard(
+                            title: 'Profile Actions',
+                            children: [
+                              _navigationRow(
+                                icon: Icons.person_outline_rounded,
+                                title: 'Edit Profile',
+                                subtitle: 'Update your basic profile details',
+                                onTap: () => _showEditProfileSheet(profile),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.track_changes_rounded,
+                                title: 'Update Fitness Goal',
+                                subtitle: 'Change your goal and activity level',
+                                onTap: () => _showEditProfileSheet(
+                                  profile,
+                                  focusGoal: true,
+                                ),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.local_fire_department_outlined,
+                                title: 'Nutrition Targets',
+                                subtitle: 'Set calories, macros and water goals',
+                                onTap: () => _showEditTargetsSheet(profile),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.fitness_center_outlined,
+                                title: 'Workout History',
+                                subtitle: 'View your saved workout sessions',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const ExerciseHistoryScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.emoji_events_outlined,
+                                title: 'View Achievements',
+                                subtitle: 'Badges and milestones',
+                                onTap: () => _showComingSoon('Achievements'),
+                              ),
+                              _divider(),
+                              _navigationRow(
+                                icon: Icons.leaderboard_outlined,
+                                title: 'View Personal Records',
+                                subtitle: 'Best lifts and workout records',
+                                onTap: () => _showComingSoon('Personal records'),
+                              ),
                             ],
                           ),
                     );

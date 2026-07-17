@@ -83,6 +83,7 @@ class ProfileFirestoreService {
         'profileSetupCompleted': true,
         'notificationsEnabled': true,
         'workoutRemindersEnabled': true,
+        'themeMode': UserProfile.systemTheme,
         'darkModeEnabled': false,
         'targetCalories': targetCalories,
         'targetProtein': targetProtein,
@@ -115,6 +116,8 @@ class ProfileFirestoreService {
     await _userDocument.set(
       {
         'profileSetupCompleted': true,
+        'themeMode': UserProfile.systemTheme,
+        'darkModeEnabled': false,
         'targetCalories': 2200.0,
         'targetProtein': 120.0,
         'targetCarbs': 275.0,
@@ -192,6 +195,32 @@ class ProfileFirestoreService {
 
     await _userDocument.set(
       updateData,
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> updateThemeMode(String themeMode) async {
+    const allowedThemeModes = {
+      UserProfile.systemTheme,
+      UserProfile.lightTheme,
+      UserProfile.darkTheme,
+    };
+
+    if (!allowedThemeModes.contains(themeMode)) {
+      throw ArgumentError.value(
+        themeMode,
+        'themeMode',
+        'Theme mode must be system, light, or dark.',
+      );
+    }
+
+    await _userDocument.set(
+      {
+        'themeMode': themeMode,
+        // Keep this old field updated for backward compatibility.
+        'darkModeEnabled': themeMode == UserProfile.darkTheme,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
       SetOptions(merge: true),
     );
   }

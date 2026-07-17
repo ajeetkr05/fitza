@@ -18,11 +18,111 @@ Future<void> main() async {
 }
 
 class FitzaThemeController {
+  static const String systemTheme = 'system';
+  static const String lightTheme = 'light';
+  static const String darkTheme = 'dark';
+
   static final ValueNotifier<ThemeMode> themeMode =
       ValueNotifier<ThemeMode>(ThemeMode.system);
 
+  // Prevents Firestore profile snapshots from repeatedly overriding
+  // a theme selected manually from Settings.
+  static bool _profileThemeInitialized = false;
+
+  static String _normalizeThemeMode(String storedThemeMode) {
+    if (storedThemeMode == lightTheme ||
+        storedThemeMode == darkTheme ||
+        storedThemeMode == systemTheme) {
+      return storedThemeMode;
+    }
+
+    return systemTheme;
+  }
+
+  static ThemeMode _convertToThemeMode(
+    String storedThemeMode,
+  ) {
+    final normalizedThemeMode =
+        _normalizeThemeMode(storedThemeMode);
+
+    switch (normalizedThemeMode) {
+      case lightTheme:
+        return ThemeMode.light;
+
+      case darkTheme:
+        return ThemeMode.dark;
+
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  static void _applyTheme(String storedThemeMode) {
+    final nextThemeMode =
+        _convertToThemeMode(storedThemeMode);
+
+    if (themeMode.value == nextThemeMode) {
+      return;
+    }
+
+    themeMode.value = nextThemeMode;
+  }
+
+  /// Used only when the signed-in user's profile is first loaded.
+  ///
+  /// Later Firestore snapshots must not overwrite a theme manually
+  /// selected from Settings.
+  static void initializeFromProfile(
+    String storedThemeMode,
+  ) {
+    if (_profileThemeInitialized) {
+      return;
+    }
+
+    _profileThemeInitialized = true;
+    _applyTheme(storedThemeMode);
+  }
+
+  /// Used when the user selects System, Light, or Dark in Settings.
+  static void setThemeMode(String storedThemeMode) {
+    _profileThemeInitialized = true;
+    _applyTheme(storedThemeMode);
+  }
+
+  /// Called after logout so the Login screen follows the phone theme.
+  static void resetToSystem() {
+    _profileThemeInitialized = false;
+
+    if (themeMode.value != ThemeMode.system) {
+      themeMode.value = ThemeMode.system;
+    }
+  }
+
+  static String get storedThemeMode {
+    switch (themeMode.value) {
+      case ThemeMode.light:
+        return lightTheme;
+
+      case ThemeMode.dark:
+        return darkTheme;
+
+      case ThemeMode.system:
+        return systemTheme;
+    }
+  }
+
+  // Compatibility for any older screen that still calls this method.
   static void setDarkModeEnabled(bool isEnabled) {
-    themeMode.value = isEnabled ? ThemeMode.dark : ThemeMode.system;
+    // Do nothing.
+    //
+    // This is an old compatibility method from the previous
+    // darkModeEnabled Boolean system.
+    //
+    // The app theme is now controlled only by themeMode:
+    // system, light, or dark.
+    //
+    // Keeping this method empty prevents older code from accidentally
+    // overriding Light mode or Use device setting.
   }
 }
 
@@ -91,7 +191,9 @@ class FitzaApp extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFB7C1D3)),
+          borderSide: const BorderSide(
+            color: Color(0xFFB7C1D3),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -108,21 +210,40 @@ class FitzaApp extends StatelessWidget {
         color: lightPrimaryText,
       ),
       textTheme: const TextTheme(
-        titleLarge: TextStyle(color: lightPrimaryText),
-        titleMedium: TextStyle(color: lightPrimaryText),
-        titleSmall: TextStyle(color: lightPrimaryText),
-        bodyLarge: TextStyle(color: lightPrimaryText),
-        bodyMedium: TextStyle(color: lightPrimaryText),
-        bodySmall: TextStyle(color: lightSecondaryText),
-        labelLarge: TextStyle(color: lightPrimaryText),
-        labelMedium: TextStyle(color: lightSecondaryText),
-        labelSmall: TextStyle(color: lightSecondaryText),
+        titleLarge: TextStyle(
+          color: lightPrimaryText,
+        ),
+        titleMedium: TextStyle(
+          color: lightPrimaryText,
+        ),
+        titleSmall: TextStyle(
+          color: lightPrimaryText,
+        ),
+        bodyLarge: TextStyle(
+          color: lightPrimaryText,
+        ),
+        bodyMedium: TextStyle(
+          color: lightPrimaryText,
+        ),
+        bodySmall: TextStyle(
+          color: lightSecondaryText,
+        ),
+        labelLarge: TextStyle(
+          color: lightPrimaryText,
+        ),
+        labelMedium: TextStyle(
+          color: lightSecondaryText,
+        ),
+        labelSmall: TextStyle(
+          color: lightSecondaryText,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFF9BB7EA),
+          disabledBackgroundColor:
+              const Color(0xFF9BB7EA),
           disabledForegroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -191,7 +312,9 @@ class FitzaApp extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: darkBorder),
+          borderSide: const BorderSide(
+            color: darkBorder,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -208,21 +331,40 @@ class FitzaApp extends StatelessWidget {
         color: darkPrimaryText,
       ),
       textTheme: const TextTheme(
-        titleLarge: TextStyle(color: darkPrimaryText),
-        titleMedium: TextStyle(color: darkPrimaryText),
-        titleSmall: TextStyle(color: darkPrimaryText),
-        bodyLarge: TextStyle(color: darkPrimaryText),
-        bodyMedium: TextStyle(color: darkPrimaryText),
-        bodySmall: TextStyle(color: darkSecondaryText),
-        labelLarge: TextStyle(color: darkPrimaryText),
-        labelMedium: TextStyle(color: darkSecondaryText),
-        labelSmall: TextStyle(color: darkSecondaryText),
+        titleLarge: TextStyle(
+          color: darkPrimaryText,
+        ),
+        titleMedium: TextStyle(
+          color: darkPrimaryText,
+        ),
+        titleSmall: TextStyle(
+          color: darkPrimaryText,
+        ),
+        bodyLarge: TextStyle(
+          color: darkPrimaryText,
+        ),
+        bodyMedium: TextStyle(
+          color: darkPrimaryText,
+        ),
+        bodySmall: TextStyle(
+          color: darkSecondaryText,
+        ),
+        labelLarge: TextStyle(
+          color: darkPrimaryText,
+        ),
+        labelMedium: TextStyle(
+          color: darkSecondaryText,
+        ),
+        labelSmall: TextStyle(
+          color: darkSecondaryText,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFF375C9F),
+          disabledBackgroundColor:
+              const Color(0xFF375C9F),
           disabledForegroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -258,6 +400,7 @@ class FitzaApp extends StatelessWidget {
           theme: _lightTheme(),
           darkTheme: _darkTheme(),
           themeMode: themeMode,
+          themeAnimationDuration: Duration.zero,
           home: const AuthGate(),
         );
       },
@@ -266,7 +409,8 @@ class FitzaApp extends StatelessWidget {
 }
 
 @immutable
-class FitzaThemeColors extends ThemeExtension<FitzaThemeColors> {
+class FitzaThemeColors
+    extends ThemeExtension<FitzaThemeColors> {
   final Color background;
   final Color surface;
   final Color inputSurface;
@@ -312,11 +456,13 @@ class FitzaThemeColors extends ThemeExtension<FitzaThemeColors> {
       surface: surface ?? this.surface,
       inputSurface: inputSurface ?? this.inputSurface,
       primaryText: primaryText ?? this.primaryText,
-      secondaryText: secondaryText ?? this.secondaryText,
+      secondaryText:
+          secondaryText ?? this.secondaryText,
       border: border ?? this.border,
       primaryBlue: primaryBlue ?? this.primaryBlue,
       accentBlue: accentBlue ?? this.accentBlue,
-      successGreen: successGreen ?? this.successGreen,
+      successGreen:
+          successGreen ?? this.successGreen,
       disabled: disabled ?? this.disabled,
       textOnBlue: textOnBlue ?? this.textOnBlue,
     );
@@ -332,17 +478,29 @@ class FitzaThemeColors extends ThemeExtension<FitzaThemeColors> {
     }
 
     return FitzaThemeColors(
-      background: Color.lerp(background, other.background, t)!,
+      background:
+          Color.lerp(background, other.background, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
-      inputSurface: Color.lerp(inputSurface, other.inputSurface, t)!,
-      primaryText: Color.lerp(primaryText, other.primaryText, t)!,
-      secondaryText: Color.lerp(secondaryText, other.secondaryText, t)!,
+      inputSurface:
+          Color.lerp(inputSurface, other.inputSurface, t)!,
+      primaryText:
+          Color.lerp(primaryText, other.primaryText, t)!,
+      secondaryText: Color.lerp(
+        secondaryText,
+        other.secondaryText,
+        t,
+      )!,
       border: Color.lerp(border, other.border, t)!,
-      primaryBlue: Color.lerp(primaryBlue, other.primaryBlue, t)!,
-      accentBlue: Color.lerp(accentBlue, other.accentBlue, t)!,
-      successGreen: Color.lerp(successGreen, other.successGreen, t)!,
-      disabled: Color.lerp(disabled, other.disabled, t)!,
-      textOnBlue: Color.lerp(textOnBlue, other.textOnBlue, t)!,
+      primaryBlue:
+          Color.lerp(primaryBlue, other.primaryBlue, t)!,
+      accentBlue:
+          Color.lerp(accentBlue, other.accentBlue, t)!,
+      successGreen:
+          Color.lerp(successGreen, other.successGreen, t)!,
+      disabled:
+          Color.lerp(disabled, other.disabled, t)!,
+      textOnBlue:
+          Color.lerp(textOnBlue, other.textOnBlue, t)!,
     );
   }
 }
