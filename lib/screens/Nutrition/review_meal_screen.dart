@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../models/Nutrition/food_item.dart';
 import '../../models/Nutrition/meal_entry.dart';
 import '../../services/Nutrition/nutrition_firestore_service.dart';
@@ -23,10 +24,13 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
   bool _isSaving = false;
   late List<FoodItem> _items;
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
+  Color get border => _colors.border;
 
   @override
   void initState() {
@@ -85,7 +89,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           title: Text(
             'Edit Quantity for\n${item.name}',
-            style: const TextStyle(color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
+            style: TextStyle(color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
             textAlign: TextAlign.center,
           ),
           content: Column(
@@ -93,7 +97,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
             children: [
               const Text(
                 'Enter the new quantity. Calories and macros will adjust automatically.',
-                style: TextStyle(color: greyText, fontSize: 13),
+                style: TextStyle(color: Color(0xFF667085), fontSize: 13),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 18),
@@ -107,12 +111,12 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       textAlign: TextAlign.center,
                       autofocus: true,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText),
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(vertical: 8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: primaryBlue),
+                          borderSide: BorderSide(color: primaryBlue),
                         ),
                       ),
                     ),
@@ -120,7 +124,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                   const SizedBox(width: 10),
                   Text(
                     unit.isEmpty ? 'units' : unit,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: greyText),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: greyText),
                   ),
                 ],
               ),
@@ -130,7 +134,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: greyText, fontWeight: FontWeight.bold)),
+              child: Text('Cancel', style: TextStyle(color: greyText, fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -204,7 +208,6 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
             backgroundColor: const Color(0xFF2E7D32),
           ),
         );
-        // Pop back to the Nutrition Home (2 screens back: AddMeal and ReviewMeal)
         int count = 0;
         Navigator.popUntil(context, (route) => count++ >= 2);
       }
@@ -231,7 +234,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Review Meal',
           style: TextStyle(
             color: darkText,
@@ -239,7 +242,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         foregroundColor: darkText,
         elevation: 0,
         leading: IconButton(
@@ -256,7 +259,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                 children: [
                   Text(
                     '${widget.mealType} Summary',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: darkText,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -265,7 +268,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                   const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surface,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: const [
                         BoxShadow(
@@ -281,14 +284,14 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _items.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFEAECF0)),
+                          separatorBuilder: (context, index) => Divider(height: 1, color: border),
                           itemBuilder: (context, index) {
                             final item = _items[index];
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                               title: Text(
                                 item.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: darkText,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
@@ -298,7 +301,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                                 children: [
                                   Text(
                                     item.quantity,
-                                    style: const TextStyle(color: greyText, fontSize: 13),
+                                    style: TextStyle(color: greyText, fontSize: 13),
                                   ),
                                   const SizedBox(width: 8),
                                   GestureDetector(
@@ -309,11 +312,11 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                                         color: const Color(0xFFE0EAFF),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Row(
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.edit_rounded, size: 10, color: primaryBlue),
-                                          SizedBox(width: 2),
+                                          const SizedBox(width: 2),
                                           Text('Edit', style: TextStyle(color: primaryBlue, fontSize: 10, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
@@ -327,7 +330,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                                 children: [
                                   Text(
                                     '${item.calories.toStringAsFixed(0)} kcal',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: primaryBlue,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
@@ -336,14 +339,14 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     'P: ${item.protein.toStringAsFixed(0)}g | C: ${item.carbs.toStringAsFixed(0)}g | F: ${item.fat.toStringAsFixed(0)}g',
-                                    style: const TextStyle(color: greyText, fontSize: 11),
+                                    style: TextStyle(color: greyText, fontSize: 11),
                                   ),
                                 ],
                               ),
                             );
                           },
                         ),
-                        const Divider(height: 1, color: Color(0xFFEAECF0)),
+                        Divider(height: 1, color: border),
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
@@ -351,7 +354,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Total Calories',
                                     style: TextStyle(
                                       color: darkText,
@@ -361,7 +364,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                                   ),
                                   Text(
                                     '${_totalCalories.toStringAsFixed(0)} kcal',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: primaryBlue,
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -425,10 +428,10 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                             children: [
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () => Navigator.pop(context), // back to Edit
+                                  onPressed: () => Navigator.pop(context),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: primaryBlue,
-                                    side: const BorderSide(color: primaryBlue),
+                                    side: BorderSide(color: primaryBlue),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -489,7 +492,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                     height: 52,
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text(
+                      child: Text(
                         'Back to Search',
                         style: TextStyle(
                           color: primaryBlue,
@@ -507,7 +510,7 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
   Widget _macroSummaryCol(String label, String val, Color color) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: greyText, fontSize: 12)),
+        Text(label, style: TextStyle(color: greyText, fontSize: 12)),
         const SizedBox(height: 4),
         Text(
           val,

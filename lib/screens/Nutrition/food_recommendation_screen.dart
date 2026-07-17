@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../services/Nutrition/gemini_service.dart';
 import 'meal_details_screen.dart';
 
@@ -30,10 +31,14 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
   bool _isLoading = true;
   Map<String, dynamic> _recommendations = {};
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
+  Color get border => _colors.border;
+  Color get inputSurface => _colors.inputSurface;
 
   @override
   void initState() {
@@ -73,7 +78,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Recommended For You',
           style: TextStyle(
             color: darkText,
@@ -81,7 +86,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         foregroundColor: darkText,
         elevation: 0,
         leading: IconButton(
@@ -90,12 +95,12 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(color: primaryBlue),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     'AI is crafting your recommendations...',
                     style: TextStyle(
@@ -117,7 +122,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Based on your remaining goals today',
                     style: TextStyle(
                       color: greyText,
@@ -164,7 +169,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
                         foregroundColor: primaryBlue,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: const BorderSide(color: primaryBlue, width: 1.5),
+                          side: BorderSide(color: primaryBlue, width: 1.5),
                         ),
                         elevation: 0,
                       ),
@@ -200,7 +205,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -221,18 +226,21 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
                 child: Icon(icon, color: iconColor, size: 18),
               ),
               const SizedBox(width: 10),
-              Text(
-                categoryTitle,
-                style: const TextStyle(
-                  color: darkText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  categoryTitle,
+                  style: TextStyle(
+                    color: darkText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 '${calories.toStringAsFixed(0)} kcal',
-                style: const TextStyle(
+                style: TextStyle(
                   color: primaryBlue,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -243,7 +251,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
           const SizedBox(height: 14),
           Text(
             mealName,
-            style: const TextStyle(
+            style: TextStyle(
               color: darkText,
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -252,7 +260,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
           const SizedBox(height: 6),
           Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               color: greyText,
               fontSize: 13,
               height: 1.3,
@@ -262,9 +270,9 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
+              color: inputSurface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFEAECF0)),
+              border: Border.all(color: border),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +298,7 @@ class _FoodRecommendationScreenState extends State<FoodRecommendationScreen> {
                       const SizedBox(height: 4),
                       Text(
                         whyMsg,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: darkText,
                           fontSize: 12,
                           height: 1.3,

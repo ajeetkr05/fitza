@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../models/Nutrition/food_item.dart';
 import '../../models/Nutrition/meal_entry.dart';
 import '../../services/Nutrition/nutrition_firestore_service.dart';
@@ -21,10 +22,13 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
   bool _isSaving = false;
   String _selectedMealType = 'Lunch'; // default meal type
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
+  Color get border => _colors.border;
 
   List<FoodItem> _parseFoodItems() {
     final itemsList = widget.mealData['items'] as List<dynamic>?;
@@ -124,7 +128,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Meal Details',
           style: TextStyle(
             color: darkText,
@@ -132,7 +136,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         foregroundColor: darkText,
         elevation: 0,
         leading: IconButton(
@@ -151,7 +155,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surface,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: const [
                         BoxShadow(
@@ -166,7 +170,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                       children: [
                         Text(
                           widget.categoryTitle.toUpperCase(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: primaryBlue,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -176,7 +180,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                         const SizedBox(height: 6),
                         Text(
                           mealName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: darkText,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -196,7 +200,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     'Ingredients / Food Items',
                     style: TextStyle(
                       color: darkText,
@@ -207,7 +211,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                   const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surface,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: const [
                         BoxShadow(
@@ -223,14 +227,14 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: items.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFEAECF0)),
+                          separatorBuilder: (context, index) => Divider(height: 1, color: border),
                           itemBuilder: (context, index) {
                             final item = items[index];
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                               title: Text(
                                 item.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: darkText,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
@@ -238,7 +242,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                               ),
                               subtitle: Text(
                                 item.quantity,
-                                style: const TextStyle(color: greyText, fontSize: 13),
+                                style: TextStyle(color: greyText, fontSize: 13),
                               ),
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -246,7 +250,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                                 children: [
                                   Text(
                                     '${item.calories.toStringAsFixed(0)} kcal',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: primaryBlue,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
@@ -255,7 +259,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     'P: ${item.protein.toStringAsFixed(0)}g | C: ${item.carbs.toStringAsFixed(0)}g | F: ${item.fat.toStringAsFixed(0)}g',
-                                    style: const TextStyle(color: greyText, fontSize: 11),
+                                    style: TextStyle(color: greyText, fontSize: 11),
                                   ),
                                 ],
                               ),
@@ -266,7 +270,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     'Recommendation Details',
                     style: TextStyle(
                       color: darkText,
@@ -313,7 +317,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Which meal is this for?',
                     style: TextStyle(
                       color: darkText,
@@ -338,10 +342,10 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                             alignment: Alignment.center,
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: isSelected ? primaryBlue : Colors.white,
+                              color: isSelected ? primaryBlue : surface,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected ? primaryBlue : const Color(0xFFEAECF0),
+                                color: isSelected ? primaryBlue : border,
                               ),
                             ),
                             child: Text(
@@ -391,7 +395,7 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             color: greyText,
             fontSize: 12,
             fontWeight: FontWeight.w500,

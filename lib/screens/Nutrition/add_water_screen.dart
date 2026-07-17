@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../models/Nutrition/water_log.dart';
 import '../../services/Nutrition/nutrition_firestore_service.dart';
 
@@ -13,10 +14,14 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
   final TextEditingController _customAmountController = TextEditingController();
   bool _isSaving = false;
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
+  Color get inputSurface => _colors.inputSurface;
+  Color get border => _colors.border;
 
   Future<void> _saveWater(int amountMl) async {
     if (amountMl <= 0) {
@@ -79,7 +84,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Add Water Intake',
           style: TextStyle(
             color: darkText,
@@ -87,7 +92,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         foregroundColor: darkText,
         elevation: 0,
         leading: IconButton(
@@ -102,7 +107,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Quick Add',
                     style: TextStyle(
                       color: darkText,
@@ -126,7 +131,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
                     ],
                   ),
                   const SizedBox(height: 32),
-                  const Text(
+                  Text(
                     'Custom Amount',
                     style: TextStyle(
                       color: darkText,
@@ -138,7 +143,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surface,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: const [
                         BoxShadow(
@@ -155,15 +160,15 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             hintText: 'Enter amount in ml',
-                            hintStyle: const TextStyle(color: greyText),
+                            hintStyle: TextStyle(color: greyText),
                             filled: true,
-                            fillColor: const Color(0xFFF8F9FA),
+                            fillColor: inputSurface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
                             ),
                             suffixText: 'ml',
-                            suffixStyle: const TextStyle(
+                            suffixStyle: TextStyle(
                               color: darkText,
                               fontWeight: FontWeight.bold,
                             ),
@@ -211,9 +216,9 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
       borderRadius: BorderRadius.circular(22),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surface,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE4E7EC), width: 1.5),
+          border: Border.all(color: border, width: 1.5),
           boxShadow: const [
             BoxShadow(
               color: Color(0x05000000),
@@ -233,7 +238,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
             const SizedBox(height: 8),
             Text(
               '${ml}ml',
-              style: const TextStyle(
+              style: TextStyle(
                 color: darkText,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -242,7 +247,7 @@ class _AddWaterScreenState extends State<AddWaterScreen> {
             const SizedBox(height: 2),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: greyText,
                 fontSize: 11,
               ),

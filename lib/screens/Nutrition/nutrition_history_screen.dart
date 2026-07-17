@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../models/Nutrition/meal_entry.dart';
 import '../../models/Nutrition/water_log.dart';
 import '../../models/profile/user_profile.dart';
@@ -18,10 +19,14 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
   List<MealEntry> _meals = [];
   List<WaterLog> _waterLogs = [];
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
+  Color get inputSurface => _colors.inputSurface;
+  Color get border => _colors.border;
 
   // Target values
   double targetCalories = 2200.0;
@@ -86,7 +91,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
         return Scaffold(
           backgroundColor: background,
           appBar: AppBar(
-            title: const Text(
+            title: Text(
               'Nutrition History',
               style: TextStyle(
                 color: darkText,
@@ -94,7 +99,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: surface,
             foregroundColor: darkText,
             elevation: 0,
             leading: IconButton(
@@ -105,7 +110,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           body: Column(
             children: [
               Container(
-                color: Colors.white,
+                color: surface,
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
                 child: Row(
                   children: [
@@ -124,8 +129,8 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _calorieChartCard(),
-                            const SizedBox(height: 18),
-                            const Text(
+                            SizedBox(height: 18),
+                            Text(
                               'Averages & Summary',
                               style: TextStyle(
                                 color: darkText,
@@ -133,20 +138,20 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            SizedBox(height: 12),
                             _metricsSummaryCard(),
-                            const SizedBox(height: 24),
+                            SizedBox(height: 24),
                             SizedBox(
                               width: double.infinity,
                               height: 52,
                               child: ElevatedButton(
                                 onPressed: () => Navigator.pop(context),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
+                                  backgroundColor: surface,
                                   foregroundColor: primaryBlue,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
-                                    side: const BorderSide(color: primaryBlue, width: 1.5),
+                                    side: BorderSide(color: primaryBlue, width: 1.5),
                                   ),
                                   elevation: 0,
                                 ),
@@ -186,7 +191,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? primaryBlue : const Color(0xFFF2F4F7),
+            color: isSelected ? primaryBlue : inputSurface,
             borderRadius: BorderRadius.horizontal(
               left: Radius.circular(index == 0 ? 12 : 0),
               right: Radius.circular(index == 2 ? 12 : 0),
@@ -246,7 +251,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -262,7 +267,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Calories Over Time',
                   style: TextStyle(
@@ -277,12 +282,12 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0EAFF),
+                  color: primaryBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   'Target: ${targetCalories.toStringAsFixed(0)} kcal',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: primaryBlue,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -358,7 +363,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -371,19 +376,19 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
       child: Column(
         children: [
           _metricRow('Average Calories', '${avgCal.toStringAsFixed(0)} kcal', '/ $targetCalories kcal', avgCal / targetCalories),
-          const Divider(height: 24, color: Color(0xFFF2F4F7)),
+          Divider(height: 24, color: border),
           _metricRow('Protein', '${avgP.toStringAsFixed(1)} g', '/ $targetProtein g', avgP / targetProtein),
-          const Divider(height: 24, color: Color(0xFFF2F4F7)),
+          Divider(height: 24, color: border),
           _metricRow('Carbohydrates', '${avgC.toStringAsFixed(1)} g', '/ $targetCarbs g', avgC / targetCarbs),
-          const Divider(height: 24, color: Color(0xFFF2F4F7)),
+          Divider(height: 24, color: border),
           _metricRow('Fats', '${avgF.toStringAsFixed(1)} g', '/ $targetFat g', avgF / targetFat),
-          const Divider(height: 24, color: Color(0xFFF2F4F7)),
+          Divider(height: 24, color: border),
           _metricRow('Water Intake', '${avgWaterL.toStringAsFixed(avgWaterL % 1 == 0 ? 0 : 1)} L', '/ ${targetWaterL % 1 == 0 ? targetWaterL.toStringAsFixed(0) : targetWaterL.toStringAsFixed(1)} L', avgWaterL / targetWaterL),
-          const Divider(height: 24, color: Color(0xFFF2F4F7)),
+          Divider(height: 24, color: border),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Goal Completion',
                 style: TextStyle(
                   color: darkText,
@@ -393,7 +398,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
               ),
               Text(
                 '${goalCompletion.toStringAsFixed(0)}%',
-                style: const TextStyle(
+                style: TextStyle(
                   color: primaryBlue,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -416,7 +421,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 color: greyText,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -426,7 +431,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: darkText,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -434,7 +439,7 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
                 ),
                 Text(
                   limit,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: greyText,
                     fontSize: 12,
                   ),
@@ -448,8 +453,8 @@ class _NutritionHistoryScreenState extends State<NutritionHistoryScreen> {
           borderRadius: BorderRadius.circular(6),
           child: LinearProgressIndicator(
             value: boundedFraction,
-            backgroundColor: const Color(0xFFF2F4F7),
-            valueColor: const AlwaysStoppedAnimation<Color>(primaryBlue),
+            backgroundColor: border,
+            valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
             minHeight: 8,
           ),
         ),
