@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../main.dart';
 import '../../models/workout/daily_recommendation.dart';
 import 'active_workout_screen.dart';
 
@@ -11,10 +11,6 @@ class WorkoutDetailsScreen extends StatelessWidget {
   final DailyRecommendation recommendation;
 
   const WorkoutDetailsScreen({super.key, required this.recommendation});
-
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
 
   /// Combined equipment needed across all exercises in this session.
   /// Empty if every exercise is bodyweight, or if equipment tracking
@@ -29,8 +25,9 @@ class WorkoutDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -39,14 +36,14 @@ class WorkoutDetailsScreen extends StatelessWidget {
             children: [
               _header(context),
               const SizedBox(height: 20),
-              _summaryCard(),
+              _summaryCard(context),
               const SizedBox(height: 20),
-              _warmupCard(),
+              _warmupCard(context),
               const SizedBox(height: 20),
-              _exercisesCard(),
+              _exercisesCard(context),
               if (_allEquipment.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                _equipmentCard(),
+                _equipmentCard(context),
               ],
               const SizedBox(height: 24),
               _startButton(context),
@@ -58,17 +55,20 @@ class WorkoutDetailsScreen extends StatelessWidget {
   }
 
   Widget _header(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final darkText = colors.primaryText;
     return Row(
       children: [
         IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_rounded, color: primaryBlue, size: 28),
+          icon: Icon(Icons.arrow_back_rounded, color: primaryBlue, size: 28),
         ),
         Expanded(
           child: Text(
             recommendation.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: darkText,
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -80,22 +80,25 @@ class WorkoutDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _summaryCard() {
+  Widget _summaryCard(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Row(
         children: [
-          _summaryStat(Icons.timer_outlined, '${recommendation.durationMinutes} min'),
-          _summaryStat(Icons.fitness_center_rounded, recommendation.targetMuscles),
-          _summaryStat(Icons.bar_chart_rounded, recommendation.difficulty),
+          _summaryStat(context, Icons.timer_outlined, '${recommendation.durationMinutes} min'),
+          _summaryStat(context, Icons.fitness_center_rounded, recommendation.targetMuscles),
+          _summaryStat(context, Icons.bar_chart_rounded, recommendation.difficulty),
         ],
       ),
     );
   }
 
-  Widget _summaryStat(IconData icon, String label) {
+  Widget _summaryStat(BuildContext context, IconData icon, String label) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final darkText = colors.primaryText;
     return Expanded(
       child: Column(
         children: [
@@ -106,7 +109,7 @@ class WorkoutDetailsScreen extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: darkText, fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(color: darkText, fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -118,16 +121,20 @@ class WorkoutDetailsScreen extends StatelessWidget {
   /// the screen matches the wireframe layout; wire up real warm-up content
   /// once that's designed - e.g. a fixed list of mobility drills, or a
   /// per-goal warm-up template.
-  Widget _warmupCard() {
+  Widget _warmupCard(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final darkText = colors.primaryText;
+    final greyText = colors.secondaryText;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Row(
         children: [
-          const Icon(Icons.directions_run_rounded, color: primaryBlue),
+          Icon(Icons.directions_run_rounded, color: primaryBlue),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -142,35 +149,41 @@ class WorkoutDetailsScreen extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: greyText),
+          Icon(Icons.chevron_right_rounded, color: greyText),
         ],
       ),
     );
   }
 
-  Widget _exercisesCard() {
+  Widget _exercisesCard(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final darkText = colors.primaryText;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Exercises',
             style: TextStyle(color: darkText, fontSize: 17, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           ...List.generate(recommendation.exercises.length, (index) {
             final prescription = recommendation.exercises[index];
-            return _exerciseRow(index + 1, prescription);
+            return _exerciseRow(context, index + 1, prescription);
           }),
         ],
       ),
     );
   }
 
-  Widget _exerciseRow(int number, ExercisePrescription prescription) {
+  Widget _exerciseRow(BuildContext context, int number, ExercisePrescription prescription) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final darkText = colors.primaryText;
+    final greyText = colors.secondaryText;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
@@ -180,44 +193,47 @@ class WorkoutDetailsScreen extends StatelessWidget {
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
+              color: primaryBlue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '$number',
-              style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               prescription.exercise.name,
-              style: const TextStyle(color: darkText, fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(color: darkText, fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
           Text(
             '${prescription.sets} sets',
-            style: const TextStyle(color: greyText, fontSize: 13),
+            style: TextStyle(color: greyText, fontSize: 13),
           ),
           const SizedBox(width: 10),
           Text(
             '${prescription.repsMin}-${prescription.repsMax} reps',
-            style: const TextStyle(color: greyText, fontSize: 13),
+            style: TextStyle(color: greyText, fontSize: 13),
           ),
         ],
       ),
     );
   }
 
-  Widget _equipmentCard() {
+  Widget _equipmentCard(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final darkText = colors.primaryText;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Equipment',
             style: TextStyle(color: darkText, fontSize: 15, fontWeight: FontWeight.bold),
           ),
@@ -230,12 +246,12 @@ class WorkoutDetailsScreen extends StatelessWidget {
                   (tag) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEAF3FF),
+                      color: primaryBlue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       tag,
-                      style: const TextStyle(color: primaryBlue, fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: primaryBlue, fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),
                 )
@@ -247,6 +263,8 @@ class WorkoutDetailsScreen extends StatelessWidget {
   }
 
   Widget _startButton(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -269,9 +287,10 @@ class WorkoutDetailsScreen extends StatelessWidget {
     );
   }
 
-  BoxDecoration _cardDecoration() {
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     return BoxDecoration(
-      color: Colors.white,
+      color: colors.surface,
       borderRadius: BorderRadius.circular(22),
       boxShadow: const [
         BoxShadow(color: Color(0x12000000), blurRadius: 12, offset: Offset(0, 5)),

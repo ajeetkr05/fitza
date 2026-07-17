@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../main.dart';
 import '../../models/workout/daily_recommendation.dart';
 import 'workout_summary_screen.dart';
 
@@ -18,9 +19,12 @@ class ActiveWorkoutScreen extends StatefulWidget {
 }
 
 class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
 
   int _currentIndex = 0;
   Timer? _restTimer;
@@ -111,7 +115,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -122,7 +126,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               const SizedBox(height: 8),
               Text(
                 'Exercise ${_currentIndex + 1} of ${_exercises.length}',
-                style: const TextStyle(color: greyText, fontSize: 14),
+                style: TextStyle(color: greyText, fontSize: 14),
               ),
               const SizedBox(height: 16),
               Expanded(child: _isResting ? _restView() : _exerciseView()),
@@ -140,13 +144,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       children: [
         IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close_rounded, color: primaryBlue, size: 26),
+          icon: Icon(Icons.close_rounded, color: primaryBlue, size: 26),
         ),
         Expanded(
           child: Text(
             widget.recommendation.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: darkText, fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(color: darkText, fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 48),
@@ -165,33 +169,33 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           Text(
             _current.exercise.name,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: darkText, fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(color: darkText, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
+              color: primaryBlue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               '${_current.sets} sets  •  ${_current.repsMin}-${_current.repsMax} reps',
-              style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
           const SizedBox(height: 28),
           Text(
             _current.exercise.instructions,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: greyText, fontSize: 15, height: 1.4),
+            style: TextStyle(color: greyText, fontSize: 15, height: 1.4),
           ),
           const SizedBox(height: 28),
           OutlinedButton.icon(
             onPressed: _startRest,
-            icon: const Icon(Icons.timer_outlined, color: primaryBlue),
-            label: const Text('Start Rest', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
+            icon: Icon(Icons.timer_outlined, color: primaryBlue),
+            label: Text('Start Rest', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: primaryBlue),
+              side: BorderSide(color: primaryBlue),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
@@ -209,26 +213,26 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Resting', style: TextStyle(color: darkText, fontSize: 20, fontWeight: FontWeight.bold)),
+          Text('Resting', style: TextStyle(color: darkText, fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
           Text(
             '$_restSecondsRemaining',
-            style: const TextStyle(color: primaryBlue, fontSize: 56, fontWeight: FontWeight.bold),
+            style: TextStyle(color: primaryBlue, fontSize: 56, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             'seconds remaining',
-            style: const TextStyle(color: greyText, fontSize: 14),
+            style: TextStyle(color: greyText, fontSize: 14),
           ),
           const SizedBox(height: 28),
           Text(
             _isLastExercise ? 'Almost done!' : 'Next: ${_exercises[_currentIndex + 1].exercise.name}',
-            style: const TextStyle(color: greyText, fontSize: 15),
+            style: TextStyle(color: greyText, fontSize: 15),
           ),
           const SizedBox(height: 20),
           TextButton(
             onPressed: _skipRest,
-            child: const Text('Skip Rest', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
+            child: Text('Skip Rest', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -243,11 +247,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             child: OutlinedButton(
               onPressed: _goToPrevious,
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: primaryBlue),
+                side: BorderSide(color: primaryBlue),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: const Text('Previous', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
+              child: Text('Previous', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
             ),
           ),
         if (_currentIndex > 0) const SizedBox(width: 12),
@@ -273,7 +277,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(22),
       boxShadow: const [
         BoxShadow(color: Color(0x12000000), blurRadius: 12, offset: Offset(0, 5)),

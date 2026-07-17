@@ -12,6 +12,7 @@ import '../../models/workout/plan_customization.dart';
 import '../../models/workout/calorie_summary.dart';
 import '../../services/Nutrition/gemini_service.dart';
 import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
+import '../../main.dart';
 import 'workout_details_screen.dart';
 import 'customize_plan_screen.dart';
 
@@ -40,9 +41,6 @@ class WorkoutHomeScreen extends StatelessWidget {
     required this.onCustomizationChanged,
   });
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
 
   Future<void> _openCustomizePlan(BuildContext context) async {
     final result = await Navigator.push<PlanCustomization>(
@@ -69,8 +67,9 @@ class WorkoutHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: colors.background,
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: selectedIndex,
         onTap: onTabChanged,
@@ -80,7 +79,7 @@ class WorkoutHomeScreen extends StatelessWidget {
           stream: ProfileFirestoreService.instance.getProfileStream(),
           builder: (context, profileSnapshot) {
             if (profileSnapshot.hasError) {
-              return _statusMessage('Could not load your profile.');
+              return _statusMessage(context, 'Could not load your profile.');
             }
             if (!profileSnapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
@@ -93,7 +92,7 @@ class WorkoutHomeScreen extends StatelessWidget {
                   WorkoutFirestoreService.instance.getWorkoutEntriesStream(),
               builder: (context, workoutsSnapshot) {
                 if (workoutsSnapshot.hasError) {
-                  return _statusMessage('Could not load workout history.');
+                  return _statusMessage(context, 'Could not load workout history.');
                 }
                 if (!workoutsSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -139,14 +138,15 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _statusMessage(String message) {
+  Widget _statusMessage(BuildContext context, String message) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: greyText, fontSize: 16),
+          style: TextStyle(color: colors.secondaryText, fontSize: 16),
         ),
       ),
     );
@@ -157,6 +157,9 @@ class WorkoutHomeScreen extends StatelessWidget {
     UserProfile profile,
     DailyRecommendation recommendation,
   ) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final darkText = colors.primaryText;
+    final greyText = colors.secondaryText;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       child: Column(
@@ -164,14 +167,14 @@ class WorkoutHomeScreen extends StatelessWidget {
         children: [
           Text(
             'Hello, ${profile.displayName.isNotEmpty ? profile.displayName : 'there'}!',
-            style: const TextStyle(
+            style: TextStyle(
               color: darkText,
               fontSize: 26,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Ready to crush your goals today?',
             style: TextStyle(color: greyText, fontSize: 15),
           ),
@@ -180,7 +183,7 @@ class WorkoutHomeScreen extends StatelessWidget {
           if (customization != null) const SizedBox(height: 16),
           _recommendationCard(context, recommendation),
           const SizedBox(height: 20),
-          _whyThisWorkoutCard(recommendation),
+          _whyThisWorkoutCard(context, recommendation),
           const SizedBox(height: 24),
           _actionButtons(context, recommendation),
         ],
@@ -189,18 +192,20 @@ class WorkoutHomeScreen extends StatelessWidget {
   }
 
   Widget _customizedBanner(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF3FF),
+        color: primaryBlue.withOpacity(0.1),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          const Icon(Icons.tune_rounded, color: primaryBlue, size: 18),
+          Icon(Icons.tune_rounded, color: primaryBlue, size: 18),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               "Today's plan reflects your custom preferences",
               style: TextStyle(color: primaryBlue, fontSize: 13, fontWeight: FontWeight.w600),
@@ -209,7 +214,7 @@ class WorkoutHomeScreen extends StatelessWidget {
           TextButton(
             onPressed: () => onCustomizationChanged(null),
             style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-            child: const Text('Reset', style: TextStyle(color: primaryBlue, fontSize: 13)),
+            child: Text('Reset', style: TextStyle(color: primaryBlue, fontSize: 13)),
           ),
         ],
       ),
@@ -220,21 +225,24 @@ class WorkoutHomeScreen extends StatelessWidget {
     BuildContext context,
     DailyRecommendation recommendation,
   ) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final darkText = colors.primaryText;
+    final greyText = colors.secondaryText;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Today's Recommendation",
             style: TextStyle(color: greyText, fontSize: 14),
           ),
           const SizedBox(height: 6),
           Text(
             recommendation.title,
-            style: const TextStyle(
+            style: TextStyle(
               color: darkText,
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -243,11 +251,11 @@ class WorkoutHomeScreen extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              _infoChip(Icons.timer_outlined, '${recommendation.durationMinutes} min'),
+              _infoChip(context, Icons.timer_outlined, '${recommendation.durationMinutes} min'),
               const SizedBox(width: 10),
-              _infoChip(Icons.bar_chart_rounded, recommendation.difficulty),
+              _infoChip(context, Icons.bar_chart_rounded, recommendation.difficulty),
               const SizedBox(width: 10),
-              _infoChip(Icons.fitness_center_rounded, recommendation.targetMuscles),
+              _infoChip(context, Icons.fitness_center_rounded, recommendation.targetMuscles),
             ],
           ),
         ],
@@ -255,12 +263,15 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoChip(IconData icon, String label) {
+  Widget _infoChip(BuildContext context, IconData icon, String label) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final darkText = colors.primaryText;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF3FF),
+          color: primaryBlue.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -272,7 +283,7 @@ class WorkoutHomeScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: darkText,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -284,15 +295,18 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _whyThisWorkoutCard(DailyRecommendation recommendation) {
+  Widget _whyThisWorkoutCard(BuildContext context, DailyRecommendation recommendation) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final darkText = colors.primaryText;
+    final greyText = colors.secondaryText;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Why this workout?',
             style: TextStyle(
               color: darkText,
@@ -301,12 +315,6 @@ class WorkoutHomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          // The FACTS (reasonBullets) are decided entirely by
-          // RecommendationService - rule-based, not AI. This FutureBuilder
-          // only asks Gemini to REWRITE those facts more conversationally.
-          // While loading, or if the API call fails for any reason, it
-          // falls back to showing the plain rule-based bullets directly -
-          // so this enhancement can never block or break the screen.
           FutureBuilder<String>(
             future: GeminiService.instance.explainWorkout(
               workoutTitle: recommendation.title,
@@ -317,11 +325,11 @@ class WorkoutHomeScreen extends StatelessWidget {
                 return const _ExplanationShimmer();
               }
               if (!snapshot.hasData || snapshot.hasError) {
-                return _reasonBulletsList(recommendation.reasonBullets);
+                return _reasonBulletsList(context, recommendation.reasonBullets);
               }
               return Text(
                 snapshot.data!,
-                style: const TextStyle(color: greyText, fontSize: 14, height: 1.4),
+                style: TextStyle(color: greyText, fontSize: 14, height: 1.4),
               );
             },
           ),
@@ -330,7 +338,10 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _reasonBulletsList(List<String> bullets) {
+  Widget _reasonBulletsList(BuildContext context, List<String> bullets) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
+    final greyText = colors.secondaryText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: bullets
@@ -340,11 +351,11 @@ class WorkoutHomeScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('•  ', style: TextStyle(color: primaryBlue)),
+                  Text('•  ', style: TextStyle(color: primaryBlue)),
                   Expanded(
                     child: Text(
                       bullet,
-                      style: const TextStyle(color: greyText, fontSize: 14),
+                      style: TextStyle(color: greyText, fontSize: 14),
                     ),
                   ),
                 ],
@@ -356,6 +367,8 @@ class WorkoutHomeScreen extends StatelessWidget {
   }
 
   Widget _actionButtons(BuildContext context, DailyRecommendation recommendation) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+    final primaryBlue = colors.primaryBlue;
     return Column(
       children: [
         SizedBox(
@@ -391,7 +404,7 @@ class WorkoutHomeScreen extends StatelessWidget {
             onPressed: () => _openCustomizePlan(context),
             style: OutlinedButton.styleFrom(
               foregroundColor: primaryBlue,
-              side: const BorderSide(color: primaryBlue),
+              side: BorderSide(color: primaryBlue),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -406,9 +419,10 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  BoxDecoration _cardDecoration() {
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     return BoxDecoration(
-      color: Colors.white,
+      color: colors.surface,
       borderRadius: BorderRadius.circular(22),
       boxShadow: const [
         BoxShadow(
@@ -478,13 +492,14 @@ class _ExplanationShimmerState extends State<_ExplanationShimmer>
   }
 
   Widget _shimmerBar({required double widthFraction}) {
+    final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
           height: 13,
           width: constraints.maxWidth * widthFraction,
           decoration: BoxDecoration(
-            color: const Color(0xFFE3E8F0),
+            color: colors.border,
             borderRadius: BorderRadius.circular(6),
           ),
         );
