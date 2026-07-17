@@ -268,6 +268,8 @@ You are an expert AI Nutrition Coach. Suggest 4 distinct food/meal recommendatio
 - Goal: $goal
 - Dietary Preference: $dietaryPreference
 
+INDIAN MEAL REQUIREMENT: You MUST suggest simple, common, everyday Indian foods (e.g. Paneer Bhurji, Dal Tadka with Roti, Moong Dal Khichdi, Egg Bhurji, Chicken Tikka, Oats with Milk, Sprouts Salad, Roasted Makhana, Paneer Butter Masala with Roti, etc.). Avoid complex, exotic, western, or hard-to-source ingredients like 'Tempeh', 'Edamame', 'Quinoa', 'Chia seeds', or exotic/rare salads. Focus on authentic, simple Indian home-cooked meals.
+
 DIETARY CONSTRAINT: The user's food preference is '$dietaryPreference'. You MUST strictly respect this preference.
 - If 'Vegetarian', the recommendation and ALL its ingredients/items MUST be completely vegetarian (no chicken, meat, beef, pork, fish, seafood, or eggs).
 - If 'Vegan', the recommendation and ALL its ingredients/items MUST be completely plant-based (no meat, fish, dairy, milk, butter, cheese, paneer, eggs, or any animal products).
@@ -316,136 +318,132 @@ Return the full output as a single JSON object containing these 4 category keys:
       if (isVegan) {
         return {
           "highProtein": {
-            "mealName": "Tofu Quinoa Salad",
-            "estimatedCalories": 360.0,
-            "shortDescription": "Pan-seared organic tofu on a bed of fresh mixed greens and cooked quinoa.",
+            "mealName": "Sprouts Salad",
+            "estimatedCalories": 220.0,
+            "shortDescription": "Steamed moong sprouts with chopped onions, tomatoes, cucumber, green chilies, and lemon juice.",
             "whyThisRecommendation": "Provides a clean, plant-based high-protein option with minimal calories.",
             "items": [
-              {"name": "Organic Firm Tofu", "quantity": "150g", "calories": 140.0, "protein": 15.0, "carbs": 3.0, "fat": 8.0},
-              {"name": "Cooked Quinoa", "quantity": "0.5 cup", "calories": 110.0, "protein": 4.0, "carbs": 20.0, "fat": 1.8},
-              {"name": "Mixed Greens & Cucumber", "quantity": "1 bowl", "calories": 50.0, "protein": 2.0, "carbs": 8.0, "fat": 0.5},
-              {"name": "Olive Oil Dressing", "quantity": "1 tsp", "calories": 60.0, "protein": 0.0, "carbs": 0.0, "fat": 7.0}
+              {"name": "Steamed Moong Sprouts", "quantity": "1.5 cups", "calories": 150.0, "protein": 12.0, "carbs": 24.0, "fat": 0.8},
+              {"name": "Chopped Onion & Tomato", "quantity": "0.5 cup", "calories": 40.0, "protein": 1.0, "carbs": 8.0, "fat": 0.2},
+              {"name": "Lemon Juice & Spices", "quantity": "1 tsp", "calories": 30.0, "protein": 0.5, "carbs": 6.0, "fat": 0.0}
             ]
           },
           "balancedMeal": {
-            "mealName": "Tempeh Rice Bowl",
-            "estimatedCalories": 430.0,
-            "shortDescription": "Sautéed tempeh served with brown rice and mixed stir-fried vegetables.",
-            "whyThisRecommendation": "A completely vegan, balanced mix of protein, fats, and complex carbohydrates.",
+            "mealName": "Moong Dal Khichdi",
+            "estimatedCalories": 380.0,
+            "shortDescription": "Simple home-cooked yellow lentil and rice khichdi prepared with minimal oil.",
+            "whyThisRecommendation": "A comforting, easily digestible Indian balanced meal with protein and complex carbs.",
             "items": [
-              {"name": "Brown Rice", "quantity": "1 cup", "calories": 215.0, "protein": 5.0, "carbs": 45.0, "fat": 1.6},
-              {"name": "Sautéed Tempeh", "quantity": "100g", "calories": 165.0, "protein": 18.0, "carbs": 9.0, "fat": 9.0},
-              {"name": "Stir-fried Veggies", "quantity": "1 cup", "calories": 50.0, "protein": 2.0, "carbs": 8.0, "fat": 0.5}
+              {"name": "Yellow Moong Dal", "quantity": "0.5 cup", "calories": 150.0, "protein": 10.0, "carbs": 25.0, "fat": 0.5},
+              {"name": "Basmati Rice", "quantity": "0.5 cup", "calories": 180.0, "protein": 3.5, "carbs": 38.0, "fat": 0.4},
+              {"name": "Ghee & Spices", "quantity": "1 tsp", "calories": 50.0, "protein": 0.0, "carbs": 0.0, "fat": 5.5}
             ]
           },
           "lowCalorie": {
-            "mealName": "Mixed Vegetable Soup",
-            "estimatedCalories": 150.0,
-            "shortDescription": "Warm, comforting clear soup packed with fiber and vitamins.",
+            "mealName": "Clear Vegetable Soup",
+            "estimatedCalories": 120.0,
+            "shortDescription": "Warm soup prepared with carrots, cabbage, and beans.",
             "whyThisRecommendation": "Extremely low-calorie yet voluminous and satisfying.",
             "items": [
-              {"name": "Vegetable Clear Broth", "quantity": "2 cups", "calories": 40.0, "protein": 1.0, "carbs": 5.0, "fat": 0.0},
-              {"name": "Chopped Vegetables (Carrots, Beans, Broccoli)", "quantity": "1.5 cups", "calories": 110.0, "protein": 4.0, "carbs": 20.0, "fat": 0.5}
+              {"name": "Mixed Chopped Vegetables", "quantity": "1.5 cups", "calories": 90.0, "protein": 3.0, "carbs": 18.0, "fat": 0.3},
+              {"name": "Vegetable Clear Broth", "quantity": "2 cups", "calories": 30.0, "protein": 0.5, "carbs": 4.5, "fat": 0.0}
             ]
           },
           "healthySnack": {
-            "mealName": "Mixed Fruit Bowl with Chia Seeds",
+            "mealName": "Roasted Chana (Chickpeas)",
             "estimatedCalories": 160.0,
-            "shortDescription": "Fresh seasonal fruits sprinkled with hydrated organic chia seeds.",
-            "whyThisRecommendation": "A quick, nutrient-dense vegan snack providing healthy omega-3 fats.",
+            "shortDescription": "Dry roasted black chana, a crispy and high-fiber snack.",
+            "whyThisRecommendation": "A quick, nutrient-dense vegan snack providing healthy plant protein.",
             "items": [
-              {"name": "Mixed Seasonal Fruits", "quantity": "1.5 cups", "calories": 100.0, "protein": 1.5, "carbs": 25.0, "fat": 0.5},
-              {"name": "Chia Seeds", "quantity": "1 tbsp", "calories": 60.0, "protein": 2.0, "carbs": 5.0, "fat": 4.0}
+              {"name": "Roasted Black Chana", "quantity": "50g", "calories": 160.0, "protein": 9.0, "carbs": 28.0, "fat": 2.5}
             ]
           }
         };
       } else if (isVeg) {
         return {
           "highProtein": {
-            "mealName": "Paneer Tikka Salad",
-            "estimatedCalories": 360.0,
-            "shortDescription": "Grilled marinated paneer cubes on a bed of fresh garden salad.",
+            "mealName": "Paneer Bhurji with Roti",
+            "estimatedCalories": 420.0,
+            "shortDescription": "Scrambled paneer cooked with mild Indian spices, served with a whole wheat roti.",
             "whyThisRecommendation": "Provides a delicious vegetarian high-protein option with moderate calories.",
             "items": [
-              {"name": "Grilled Paneer", "quantity": "120g", "calories": 250.0, "protein": 18.0, "carbs": 4.0, "fat": 18.0},
-              {"name": "Mixed Greens & Cucumber", "quantity": "1 bowl", "calories": 50.0, "protein": 2.0, "carbs": 8.0, "fat": 0.5},
-              {"name": "Yogurt Dressing", "quantity": "2 tbsp", "calories": 60.0, "protein": 2.0, "carbs": 4.0, "fat": 4.0}
+              {"name": "Fresh Paneer", "quantity": "120g", "calories": 280.0, "protein": 18.0, "carbs": 4.0, "fat": 20.0},
+              {"name": "Whole Wheat Roti", "quantity": "1 piece", "calories": 85.0, "protein": 3.0, "carbs": 18.0, "fat": 0.5},
+              {"name": "Onion, Tomato & Spices", "quantity": "0.5 cup", "calories": 55.0, "protein": 1.0, "carbs": 7.0, "fat": 2.5}
             ]
           },
           "balancedMeal": {
-            "mealName": "Paneer Tofu Quinoa Bowl",
-            "estimatedCalories": 420.0,
-            "shortDescription": "Sautéed paneer/tofu with quinoa and colorful roasted vegetables.",
-            "whyThisRecommendation": "A balanced mix of protein, fats, and complex carbohydrates.",
+            "mealName": "Dal Tadka with Rice",
+            "estimatedCalories": 410.0,
+            "shortDescription": "Yellow arhar dal tempered with cumin and garlic, served with steamed basmati rice.",
+            "whyThisRecommendation": "A classic, balanced mix of protein, fats, and complex carbohydrates.",
             "items": [
-              {"name": "Cooked Quinoa", "quantity": "1 cup", "calories": 220.0, "protein": 8.0, "carbs": 39.0, "fat": 3.6},
-              {"name": "Paneer / Tofu", "quantity": "100g", "calories": 150.0, "protein": 14.0, "carbs": 3.0, "fat": 10.0},
-              {"name": "Steamed Veggies", "quantity": "1 cup", "calories": 50.0, "protein": 2.0, "carbs": 8.0, "fat": 0.5}
+              {"name": "Yellow Arhar Dal", "quantity": "1 cup", "calories": 180.0, "protein": 9.0, "carbs": 28.0, "fat": 3.5},
+              {"name": "Steamed Basmati Rice", "quantity": "1 cup", "calories": 180.0, "protein": 3.5, "carbs": 40.0, "fat": 0.4},
+              {"name": "Oil & Spices", "quantity": "1 tsp", "calories": 50.0, "protein": 0.0, "carbs": 0.0, "fat": 5.5}
             ]
           },
           "lowCalorie": {
-            "mealName": "Mixed Vegetable Soup",
-            "estimatedCalories": 150.0,
-            "shortDescription": "Warm, comforting clear soup packed with fiber and vitamins.",
-            "whyThisRecommendation": "Extremely low-calorie yet voluminous and satisfying.",
+            "mealName": "Spiced Buttermilk (Chaas)",
+            "estimatedCalories": 110.0,
+            "shortDescription": "Refreshing diluted yogurt blended with roasted cumin powder and black salt.",
+            "whyThisRecommendation": "Extremely low-calorie, hydrating, and great for digestion.",
             "items": [
-              {"name": "Vegetable Clear Broth", "quantity": "2 cups", "calories": 40.0, "protein": 1.0, "carbs": 5.0, "fat": 0.0},
-              {"name": "Chopped Vegetables (Carrots, Beans, Broccoli)", "quantity": "1.5 cups", "calories": 110.0, "protein": 4.0, "carbs": 20.0, "fat": 0.5}
+              {"name": "Diluted Low-fat Curd", "quantity": "1 glass", "calories": 90.0, "protein": 5.0, "carbs": 6.0, "fat": 4.5},
+              {"name": "Mint & Cumin powder", "quantity": "1 tsp", "calories": 20.0, "protein": 0.5, "carbs": 3.0, "fat": 0.5}
             ]
           },
           "healthySnack": {
-            "mealName": "Greek Yogurt with Almonds",
-            "estimatedCalories": 180.0,
-            "shortDescription": "Creamy low-fat Greek yogurt topped with crunchy sliced almonds.",
-            "whyThisRecommendation": "A quick snack providing probiotic support and healthy fats.",
+            "mealName": "Roasted Makhana (Foxnuts)",
+            "estimatedCalories": 150.0,
+            "shortDescription": "Crispy foxnuts lightly roasted with a touch of ghee and turmeric.",
+            "whyThisRecommendation": "A quick, low-calorie snack providing healthy fats and mineral support.",
             "items": [
-              {"name": "Plain Greek Yogurt", "quantity": "150g", "calories": 120.0, "protein": 15.0, "carbs": 6.0, "fat": 2.0},
-              {"name": "Almonds", "quantity": "10 pieces", "calories": 60.0, "protein": 2.0, "carbs": 2.0, "fat": 5.0}
+              {"name": "Makhana (Foxnuts)", "quantity": "30g", "calories": 110.0, "protein": 3.0, "carbs": 22.0, "fat": 0.5},
+              {"name": "Ghee", "quantity": "0.5 tsp", "calories": 40.0, "protein": 0.0, "carbs": 0.0, "fat": 4.5}
             ]
           }
         };
       } else {
         return {
           "highProtein": {
-            "mealName": "Grilled Chicken Salad",
-            "estimatedCalories": 350.0,
-            "shortDescription": "Lean grilled chicken breast on a bed of fresh mixed greens.",
+            "mealName": "Egg Bhurji with Roti",
+            "estimatedCalories": 380.0,
+            "shortDescription": "Scrambled eggs cooked with onions, tomatoes, and green chilies, served with a roti.",
             "whyThisRecommendation": "Provides high protein with minimal calories to help hit your protein goals.",
             "items": [
-              {"name": "Grilled Chicken Breast", "quantity": "150g", "calories": 240.0, "protein": 35.0, "carbs": 0.0, "fat": 4.0},
-              {"name": "Mixed Greens & Cucumber", "quantity": "1 bowl", "calories": 50.0, "protein": 2.0, "carbs": 8.0, "fat": 0.5},
-              {"name": "Olive Oil Dressing", "quantity": "1 tsp", "calories": 60.0, "protein": 0.0, "carbs": 0.0, "fat": 7.0}
+              {"name": "Whole Eggs", "quantity": "2 pieces", "calories": 150.0, "protein": 12.0, "carbs": 1.2, "fat": 10.0},
+              {"name": "Whole Wheat Roti", "quantity": "1 piece", "calories": 85.0, "protein": 3.0, "carbs": 18.0, "fat": 0.5},
+              {"name": "Onion, Tomato & Oil", "quantity": "0.5 cup", "calories": 145.0, "protein": 1.5, "carbs": 8.0, "fat": 11.5}
             ]
           },
           "balancedMeal": {
-            "mealName": "Paneer Tofu Quinoa Bowl",
-            "estimatedCalories": 420.0,
-            "shortDescription": "Sautéed paneer/tofu with quinoa and colorful roasted vegetables.",
-            "whyThisRecommendation": "A balanced mix of protein, fats, and complex carbohydrates.",
+            "mealName": "Chicken Curry with Rice",
+            "estimatedCalories": 460.0,
+            "shortDescription": "Home-style chicken curry served with steamed basmati rice.",
+            "whyThisRecommendation": "A highly balanced Indian meal containing lean chicken protein and complex carbs.",
             "items": [
-              {"name": "Cooked Quinoa", "quantity": "1 cup", "calories": 220.0, "protein": 8.0, "carbs": 39.0, "fat": 3.6},
-              {"name": "Paneer / Tofu", "quantity": "100g", "calories": 150.0, "protein": 14.0, "carbs": 3.0, "fat": 10.0},
-              {"name": "Steamed Veggies", "quantity": "1 cup", "calories": 50.0, "protein": 2.0, "carbs": 8.0, "fat": 0.5}
+              {"name": "Chicken Curry", "quantity": "150g", "calories": 230.0, "protein": 24.0, "carbs": 8.0, "fat": 11.0},
+              {"name": "Steamed Basmati Rice", "quantity": "1.2 cups", "calories": 230.0, "protein": 4.0, "carbs": 50.0, "fat": 0.5}
             ]
           },
           "lowCalorie": {
-            "mealName": "Mixed Vegetable Soup",
-            "estimatedCalories": 150.0,
-            "shortDescription": "Warm, comforting clear soup packed with fiber and vitamins.",
-            "whyThisRecommendation": "Extremely low-calorie yet voluminous and satisfying.",
+            "mealName": "Chicken Clear Soup",
+            "estimatedCalories": 140.0,
+            "shortDescription": "Warm chicken broth with shredded chicken breast and fresh herbs.",
+            "whyThisRecommendation": "Extremely low-calorie, high-protein, and comforting option.",
             "items": [
-              {"name": "Vegetable Clear Broth", "quantity": "2 cups", "calories": 40.0, "protein": 1.0, "carbs": 5.0, "fat": 0.0},
-              {"name": "Chopped Vegetables (Carrots, Beans, Broccoli)", "quantity": "1.5 cups", "calories": 110.0, "protein": 4.0, "carbs": 20.0, "fat": 0.5}
+              {"name": "Shredded Chicken Breast", "quantity": "80g", "calories": 100.0, "protein": 18.0, "carbs": 0.0, "fat": 1.5},
+              {"name": "Chicken Broth & Spices", "quantity": "2 cups", "calories": 40.0, "protein": 1.0, "carbs": 3.0, "fat": 1.0}
             ]
           },
           "healthySnack": {
-            "mealName": "Greek Yogurt with Almonds",
-            "estimatedCalories": 180.0,
-            "shortDescription": "Creamy low-fat Greek yogurt topped with crunchy sliced almonds.",
-            "whyThisRecommendation": "A quick snack providing probiotic support and healthy fats.",
+            "mealName": "Boiled Eggs",
+            "estimatedCalories": 150.0,
+            "shortDescription": "Two hard-boiled eggs seasoned with pinch of black pepper and salt.",
+            "whyThisRecommendation": "A quick, natural, high-protein snack.",
             "items": [
-              {"name": "Plain Greek Yogurt", "quantity": "150g", "calories": 120.0, "protein": 15.0, "carbs": 6.0, "fat": 2.0},
-              {"name": "Almonds", "quantity": "10 pieces", "calories": 60.0, "protein": 2.0, "carbs": 2.0, "fat": 5.0}
+              {"name": "Hard Boiled Eggs", "quantity": "2 pieces", "calories": 150.0, "protein": 12.0, "carbs": 1.2, "fat": 10.0}
             ]
           }
         };

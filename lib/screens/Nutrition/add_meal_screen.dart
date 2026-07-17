@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../models/Nutrition/food_item.dart';
 import '../../services/Nutrition/gemini_service.dart';
 import '../../services/Nutrition/nutrition_firestore_service.dart';
@@ -24,10 +25,14 @@ class _AddMealScreenState extends State<AddMealScreen> {
   List<FoodItem> _searchResults = [];
   final List<FoodItem> _selectedItems = [];
 
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
-  static const Color background = Color(0xFFF5F5F5);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
+  Color get inputSurface => _colors.inputSurface;
+  Color get border => _colors.border;
 
   // Quick/Recent/Frequently eaten foods list for mock suggestions
   final List<FoodItem> _frequentFoods = const [
@@ -95,7 +100,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Add Meal',
           style: TextStyle(
             color: darkText,
@@ -103,7 +108,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         foregroundColor: darkText,
         elevation: 0,
         leading: IconButton(
@@ -112,12 +117,12 @@ class _AddMealScreenState extends State<AddMealScreen> {
         ),
       ),
       body: _isSearching
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(color: primaryBlue),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     'Searching food databases...',
                     style: TextStyle(
@@ -132,7 +137,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
           : Column(
               children: [
                 Container(
-                  color: Colors.white,
+                  color: surface,
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
                   child: Column(
                     children: [
@@ -153,7 +158,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                                 alignment: Alignment.center,
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? primaryBlue : const Color(0xFFF2F4F7),
+                                  color: isSelected ? primaryBlue : inputSurface,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
@@ -177,10 +182,10 @@ class _AddMealScreenState extends State<AddMealScreen> {
                         onSubmitted: _performSearch,
                         decoration: InputDecoration(
                           hintText: 'Search food (e.g. 2 Roti, Chicken)',
-                          hintStyle: const TextStyle(color: greyText, fontSize: 14),
-                          prefixIcon: const Icon(Icons.search, color: greyText),
+                          hintStyle: TextStyle(color: greyText, fontSize: 14),
+                          prefixIcon: Icon(Icons.search, color: greyText),
                           filled: true,
-                          fillColor: const Color(0xFFF2F4F7),
+                          fillColor: inputSurface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -198,7 +203,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (_searchResults.isNotEmpty) ...[
-                          const Text(
+                          Text(
                             'Search Results',
                             style: TextStyle(
                               color: darkText,
@@ -214,7 +219,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'Selected Foods',
                                 style: TextStyle(
                                   color: darkText,
@@ -224,7 +229,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                               ),
                               Text(
                                 '${_selectedItems.length} item(s)',
-                                style: const TextStyle(color: greyText, fontSize: 13),
+                                style: TextStyle(color: greyText, fontSize: 13),
                               ),
                             ],
                           ),
@@ -266,7 +271,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                           ),
                           const SizedBox(height: 20),
                         ],
-                        const Text(
+                        Text(
                           'Frequently Eaten Foods',
                           style: TextStyle(
                             color: darkText,
@@ -288,7 +293,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
   Widget _foodListCard(List<FoodItem> items, {required bool isSearch}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -302,29 +307,29 @@ class _AddMealScreenState extends State<AddMealScreen> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: items.length,
-        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFEAECF0)),
+        separatorBuilder: (context, index) => Divider(height: 1, color: border),
         itemBuilder: (context, index) {
           final item = items[index];
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             title: Text(
               item.name,
-              style: const TextStyle(
+              style: TextStyle(
                 color: darkText,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
             ),
-            subtitle: Text(
+             subtitle: Text(
               '${item.quantity} | P: ${item.protein.toStringAsFixed(0)}g C: ${item.carbs.toStringAsFixed(0)}g F: ${item.fat.toStringAsFixed(0)}g',
-              style: const TextStyle(color: greyText, fontSize: 12),
+              style: TextStyle(color: greyText, fontSize: 12),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '${item.calories.toStringAsFixed(0)} kcal',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: primaryBlue,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -338,7 +343,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.add, color: primaryBlue, size: 18),
+                          icon: Icon(Icons.add, color: primaryBlue, size: 18),
                           onPressed: () => _addItem(item),
                           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                           padding: EdgeInsets.zero,
