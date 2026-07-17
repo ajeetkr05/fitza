@@ -19,6 +19,8 @@ class GeminiService {
 
   int _currentKeyIndex = 0;
 
+  final Map<String, String> _workoutExplanationCache = {};
+
   Future<String> _postRequest(Map<String, dynamic> body) async {
     final keys = _apiKeys;
     if (keys.isEmpty) {
@@ -33,7 +35,7 @@ class GeminiService {
         client.connectionTimeout = const Duration(seconds: 10);
         
         final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$apiKey',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
         );
         
         final request = await client.postUrl(url);
@@ -189,6 +191,62 @@ When in doubt, treat the image as food and attempt identification.
       return [];
     }
   }
+
+  /// Rewrites rule-based "why this workout" facts into a warm, natural
+/// explanation. The FACTS themselves are decided entirely by
+/// RecommendationService (rule-based, safety-relevant) - this only
+/// rephrases them. Falls back to the original bullets, joined as plain
+/// sentences, if the API fails for any reason - matching the fallback
+/// pattern used elsewhere in this class.
+Future<String> explainWorkout({
+  required String workoutTitle,
+  required List<String> ruleBasedBullets,
+}) async {
+  final cacheKey = '$workoutTitle|${ruleBasedBullets.join('|')}';
+  final cached = _workoutExplanationCache[cacheKey];
+  if (cached != null) return cached;
+
+  final prompt = '''
+You are a friendly, encouraging fitness coach inside the Fitza app.
+Rewrite the following facts about today's recommended workout as a warm,
+natural 2-3 sentence explanation for the user.
+
+STRICT RULES:
+- Do NOT add any new facts, numbers, claims, or medical advice beyond what is listed below.
+- Do NOT invent statistics or health claims.
+- Keep it encouraging but not over-the-top.
+- Return ONLY the explanation text - no preamble, no markdown, no quotes.
+
+Workout: $workoutTitle
+Facts:
+${ruleBasedBullets.map((b) => '- $b').join('\n')}
+''';
+
+  final body = {
+    "contents": [
+      {
+        "parts": [
+          {"text": prompt}
+        ]
+      }
+    ],
+  };
+
+  try {
+    final responseText = await _postRequest(body);
+    final jsonResponse = jsonDecode(responseText);
+    final contentText =
+        jsonResponse['candidates'][0]['content']['parts'][0]['text'] as String;
+    final explanation = contentText.trim();
+    _workoutExplanationCache[cacheKey] = explanation;
+    return explanation;
+  } catch (e) {
+    print('explainWorkout failed: $e');
+    // Fallback: just present the rule-based facts as plain sentences -
+    // still informative, just less conversational.
+    return ruleBasedBullets.join(' ');
+  }
+}
 
   /// Generates 4 personalized food recommendations.
   Future<Map<String, dynamic>> getFoodRecommendations({

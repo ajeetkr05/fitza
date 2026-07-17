@@ -517,13 +517,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showComingSoon(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$title will be added later.'),
-      ),
-    );
-  }
+void _showComingSoon(String title) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('$title will be added later.'),
+    ),
+  );
+}
+     
+  
 
   @override
   Widget build(BuildContext context) {
@@ -731,8 +733,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ],
                           ),
-                        ],
-                      ),
                     );
                   },
                 );
