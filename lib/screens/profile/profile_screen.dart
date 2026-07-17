@@ -733,6 +733,8 @@ void _showComingSoon(String title) {
                               ),
                             ],
                           ),
+                        ],
+                      ),
                     );
                   },
                 );
