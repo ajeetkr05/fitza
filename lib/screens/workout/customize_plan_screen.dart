@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../main.dart';
 import '../../models/workout/plan_customization.dart';
 
 /// "Customize Plan" (screen 7). Pushed from WorkoutHomeScreen's
@@ -18,9 +18,12 @@ class CustomizePlanScreen extends StatefulWidget {
 }
 
 class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
-  static const Color primaryBlue = Color(0xFF1555C0);
-  static const Color darkText = Color(0xFF0B1B4D);
-  static const Color greyText = Color(0xFF667085);
+  FitzaThemeColors get _colors => Theme.of(context).extension<FitzaThemeColors>()!;
+  Color get primaryBlue => _colors.primaryBlue;
+  Color get darkText => _colors.primaryText;
+  Color get greyText => _colors.secondaryText;
+  Color get background => _colors.background;
+  Color get surface => _colors.surface;
 
   static const _durationOptions = {'Short': 4, 'Medium': 6, 'Long': 8};
   static const _difficultyOptions = ['Beginner', 'Intermediate', 'Advanced'];
@@ -71,7 +74,7 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -81,6 +84,7 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
               _header(context),
               const SizedBox(height: 24),
               _dropdownCard(
+                context,
                 label: 'Workout Duration',
                 value: _selectedDurationLabel,
                 options: _durationOptions.keys.toList(),
@@ -88,6 +92,7 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
               ),
               const SizedBox(height: 16),
               _dropdownCard(
+                context,
                 label: 'Difficulty',
                 value: _selectedDifficulty,
                 options: _difficultyOptions,
@@ -95,6 +100,7 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
               ),
               const SizedBox(height: 16),
               _dropdownCard(
+                context,
                 label: 'Workout Location',
                 value: _selectedLocation,
                 options: _locationOptions,
@@ -102,6 +108,7 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
               ),
               const SizedBox(height: 16),
               _dropdownCard(
+                context,
                 label: 'Target Muscle Focus',
                 value: _selectedMuscleFocus,
                 options: _muscleFocusOptions,
@@ -133,9 +140,9 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
       children: [
         IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_rounded, color: primaryBlue, size: 28),
+          icon: Icon(Icons.arrow_back_rounded, color: primaryBlue, size: 28),
         ),
-        const Expanded(
+        Expanded(
           child: Text(
             'Customize Plan',
             textAlign: TextAlign.center,
@@ -147,7 +154,8 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
     );
   }
 
-  Widget _dropdownCard({
+  Widget _dropdownCard(
+    BuildContext context, {
     required String label,
     required String value,
     required List<String> options,
@@ -157,7 +165,7 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(color: Color(0x12000000), blurRadius: 10, offset: Offset(0, 4)),
@@ -166,12 +174,13 @@ class _CustomizePlanScreenState extends State<CustomizePlanScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: const TextStyle(color: greyText, fontSize: 15)),
+            child: Text(label, style: TextStyle(color: greyText, fontSize: 15)),
           ),
           DropdownButton<String>(
             value: value,
             underline: const SizedBox(),
-            style: const TextStyle(color: darkText, fontSize: 15, fontWeight: FontWeight.w600),
+            dropdownColor: surface,
+            style: TextStyle(color: darkText, fontSize: 15, fontWeight: FontWeight.w600),
             items: options
                 .map((option) => DropdownMenuItem(value: option, child: Text(option)))
                 .toList(),
