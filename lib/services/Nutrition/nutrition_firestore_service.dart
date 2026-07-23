@@ -133,6 +133,33 @@ class NutritionFirestoreService {
     return list;
   }
 
+  /// Fetches unique FoodItems logged across the user's last [mealLimit] meals.
+  Future<List<FoodItem>> getRecentlyEatenFoods({int mealLimit = 8}) async {
+    try {
+      final snapshot = await _mealLogsCollection
+          .orderBy('timestamp', descending: true)
+          .limit(mealLimit)
+          .get();
+
+      final List<FoodItem> recentItems = [];
+      final Set<String> seenNames = {};
+
+      for (var doc in snapshot.docs) {
+        final meal = MealEntry.fromFirestore(doc);
+        for (var item in meal.items) {
+          final key = item.name.trim().toLowerCase();
+          if (!seenNames.contains(key)) {
+            seenNames.add(key);
+            recentItems.add(item);
+          }
+        }
+      }
+      return recentItems;
+    } catch (e) {
+      return [];
+    }
+  }
+
   /// Fetches water history logs for a range of dates.
   Future<List<WaterLog>> getHistoryWater(int daysBack) async {
     final now = DateTime.now();
@@ -149,12 +176,41 @@ class NutritionFirestoreService {
     return list;
   }
 
+  List<FoodItem>? _cachedCompositionFoods;
+
   /// Query the Cloud Firestore collection `food_composition_tables` for local food composition items.
   Future<List<FoodItem>> searchLocalFoodComposition(String query) async {
     if (query.trim().isEmpty) return [];
     try {
+      if (_cachedCompositionFoods == null) {
+        final snapshot = await _firestore
+            .collection('food_composition_tables')
+            .limit(100)
+            .get();
+
+        _cachedCompositionFoods = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return FoodItem(
+            name: data['foodName'] as String? ?? data['name'] as String? ?? '',
+            quantity: data['quantity'] as String? ?? '100g',
+            calories: (data['calories'] as num?)?.toDouble() ?? 0.0,
+            protein: (data['protein'] as num?)?.toDouble() ?? 0.0,
+            carbs: (data['carbs'] as num?)?.toDouble() ?? 0.0,
+            fat: (data['fat'] as num?)?.toDouble() ?? 0.0,
+          );
+        }).where((item) => item.name.isNotEmpty).toList();
+      }
+
       final queryText = query.trim().toLowerCase();
-      // Search by prefix on a lowercase field `searchName`
+      final matches = _cachedCompositionFoods!.where((item) {
+        final nameLower = item.name.toLowerCase();
+        return nameLower.contains(queryText);
+      }).toList();
+
+      if (matches.isNotEmpty) {
+        return matches;
+      }
+
       final snapshot = await _firestore
           .collection('food_composition_tables')
           .where('searchName', isGreaterThanOrEqualTo: queryText)
@@ -165,7 +221,7 @@ class NutritionFirestoreService {
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return FoodItem(
-          name: data['foodName'] as String? ?? '',
+          name: data['foodName'] as String? ?? data['name'] as String? ?? '',
           quantity: data['quantity'] as String? ?? '100g',
           calories: (data['calories'] as num?)?.toDouble() ?? 0.0,
           protein: (data['protein'] as num?)?.toDouble() ?? 0.0,

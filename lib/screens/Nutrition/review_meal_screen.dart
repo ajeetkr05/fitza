@@ -287,59 +287,77 @@ class _ReviewMealScreenState extends State<ReviewMealScreen> {
                           separatorBuilder: (context, index) => Divider(height: 1, color: border),
                           itemBuilder: (context, index) {
                             final item = _items[index];
-                            return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                              title: Text(
-                                item.name,
-                                style: TextStyle(
-                                  color: darkText,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              subtitle: Row(
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    item.quantity,
-                                    style: TextStyle(color: greyText, fontSize: 13),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  GestureDetector(
-                                    onTap: () => _editItemQuantity(index),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE0EAFF),
-                                        borderRadius: BorderRadius.circular(6),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.name,
+                                          style: TextStyle(
+                                            color: darkText,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.edit_rounded, size: 10, color: primaryBlue),
-                                          const SizedBox(width: 2),
-                                          Text('Edit', style: TextStyle(color: primaryBlue, fontSize: 10, fontWeight: FontWeight.bold)),
-                                        ],
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        '${item.calories.toStringAsFixed(0)} kcal',
+                                        style: TextStyle(
+                                          color: primaryBlue,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${item.calories.toStringAsFixed(0)} kcal',
-                                    style: TextStyle(
-                                      color: primaryBlue,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'P: ${item.protein.toStringAsFixed(0)}g | C: ${item.carbs.toStringAsFixed(0)}g | F: ${item.fat.toStringAsFixed(0)}g',
-                                    style: TextStyle(color: greyText, fontSize: 11),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          item.quantity,
+                                          style: TextStyle(color: greyText, fontSize: 13),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: () => _editItemQuantity(index),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE0EAFF),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.edit_rounded, size: 10, color: primaryBlue),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Edit',
+                                                style: TextStyle(
+                                                  color: primaryBlue,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        'P: ${item.protein.toStringAsFixed(0)}g | C: ${item.carbs.toStringAsFixed(0)}g | F: ${item.fat.toStringAsFixed(0)}g',
+                                        style: TextStyle(color: greyText, fontSize: 11),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
