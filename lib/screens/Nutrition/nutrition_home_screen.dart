@@ -10,7 +10,6 @@ import '../../widgets/fitza_header.dart';
 import 'add_meal_screen.dart';
 import 'add_water_screen.dart';
 import 'food_recommendation_screen.dart';
-import 'nutrition_history_screen.dart';
 
 class NutritionHomeScreen extends StatefulWidget {
   final int selectedIndex;
@@ -34,6 +33,7 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
   Color get background => _colors.background;
   Color get successGreen => _colors.successGreen;
   Color get surface => _colors.surface;
+  Color get inputSurface => _colors.inputSurface;
   Color get border => _colors.border;
 
   // Targets
@@ -43,31 +43,57 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
   double targetFat = 73.0;
   int targetWaterMl = 3000;
 
+  // History state: 0 = Weekly (7 days), 1 = Monthly (30 days)
+  int _selectedHistoryTab = 0;
+  bool _isHistoryLoading = true;
+  List<MealEntry> _historyMeals = [];
+  List<WaterLog> _historyWaterLogs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistoryData();
+  }
+
+  Future<void> _loadHistoryData() async {
+    setState(() {
+      _isHistoryLoading = true;
+    });
+
+    try {
+      int daysBack = _selectedHistoryTab == 0 ? 7 : 30;
+
+      final mealsList = await NutritionFirestoreService.instance.getHistoryMeals(daysBack);
+      final waterList = await NutritionFirestoreService.instance.getHistoryWater(daysBack);
+
+      if (mounted) {
+        setState(() {
+          _historyMeals = mealsList;
+          _historyWaterLogs = waterList;
+          _isHistoryLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isHistoryLoading = false;
+        });
+      }
+    }
+  }
+
   String get _currentDateString {
     final now = DateTime.now();
     return "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
   }
 
-  String get _formattedHeaderDate {
-    final now = DateTime.now();
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    // weekday is 1-indexed, starting from Monday in Dart
-    final weekdayStr = weekdays[now.weekday == 7 ? 0 : now.weekday];
-    return "${months[now.month - 1]} ${now.day}, $weekdayStr";
-  }
-
   @override
   Widget build(BuildContext context) {
     final dateStr = _currentDateString;
-    print('NutritionHome: querying for date=$dateStr');
 
     return StreamBuilder<UserProfile>(
       stream: ProfileFirestoreService.instance.getProfileStream(),
       builder: (context, profileSnapshot) {
-        if (profileSnapshot.hasError) {
-          print('NutritionHome: profileStream error=${profileSnapshot.error}');
-        }
         final profile = profileSnapshot.data;
         if (profile != null) {
           targetCalories = profile.targetCalories ?? 2200.0;
@@ -76,25 +102,17 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           targetFat = profile.targetFat ?? 73.0;
           targetWaterMl = profile.targetWaterMl ?? 3000;
         }
-        final displayName = profile?.displayName ?? 'User';
         final goal = profile?.goal ?? 'Stay Fit';
         final dietaryPref = profile?.dietaryPreference ?? 'Not set';
 
         return StreamBuilder<List<MealEntry>>(
           stream: NutritionFirestoreService.instance.getMealsStream(dateStr),
           builder: (context, mealsSnapshot) {
-            if (mealsSnapshot.hasError) {
-              print('NutritionHome: mealsStream error=${mealsSnapshot.error}');
-            }
             final meals = mealsSnapshot.data ?? [];
-            print('NutritionHome: meals count=${meals.length}');
 
             return StreamBuilder<List<WaterLog>>(
               stream: NutritionFirestoreService.instance.getWaterStream(dateStr),
               builder: (context, waterSnapshot) {
-                if (waterSnapshot.hasError) {
-                  print('NutritionHome: waterStream error=${waterSnapshot.error}');
-                }
                 final waterLogs = waterSnapshot.data ?? [];
 
                 // Calculation calculations
@@ -149,84 +167,9 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Top Header
-                                FitzaHeader(
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      InkWell(
-                                        borderRadius: BorderRadius.circular(12),
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => const NutritionHistoryScreen(),
-                                            ),
-                                          );
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: surface,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: primaryBlue, width: 1.5),
-                                            boxShadow: const [
-                                              BoxShadow(
-                                                color: Color(0x0A000000),
-                                                blurRadius: 8,
-                                                offset: Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.bar_chart_rounded,
-                                                color: primaryBlue,
-                                                size: 18,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Progress',
-                                                style: TextStyle(
-                                                  color: primaryBlue,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  'Hello, $displayName!',
-                                  style: TextStyle(
-                                    color: darkText,
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(Icons.calendar_today_rounded, size: 14, color: primaryBlue),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _formattedHeaderDate,
-                                      style: TextStyle(
-                                        color: primaryBlue,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
+                                // Top Header (clean, without extra greeting or Progress button)
+                                const FitzaHeader(),
+                                const SizedBox(height: 16),
 
                                 // Calories Progress Card
                                 _calorieProgressCard(consumedCals, remainingCals),
@@ -265,6 +208,25 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                                   _sectionTitle('Recent Logs', ''),
                                   const SizedBox(height: 12),
                                   _recentLogsCard(meals),
+                                  const SizedBox(height: 22),
+                                ],
+
+                                // Nutrition History Section (Weekly / Monthly)
+                                _sectionTitle('Nutrition History', ''),
+                                const SizedBox(height: 12),
+                                _historyToggleButtons(),
+                                const SizedBox(height: 16),
+                                if (_isHistoryLoading)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 36),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  )
+                                else ...[
+                                  _calorieChartCard(),
+                                  const SizedBox(height: 18),
+                                  _sectionTitle('Averages & Summary', ''),
+                                  const SizedBox(height: 12),
+                                  _metricsSummaryCard(),
                                 ],
                               ],
                             ),
@@ -791,7 +753,10 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                 const SizedBox(width: 10),
                 IconButton(
                   icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
-                  onPressed: () => NutritionFirestoreService.instance.deleteMeal(meal.id),
+                  onPressed: () {
+                    NutritionFirestoreService.instance.deleteMeal(meal.id);
+                    _loadHistoryData();
+                  },
                 ),
               ],
             ),
@@ -800,4 +765,451 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
       ),
     );
   }
+
+  Widget _historyToggleButtons() {
+    return Container(
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          _historyTabButton(0, 'Weekly'),
+          _historyTabButton(1, 'Monthly'),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyTabButton(int index, String label) {
+    final isSelected = _selectedHistoryTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_selectedHistoryTab != index) {
+            setState(() {
+              _selectedHistoryTab = index;
+            });
+            _loadHistoryData();
+          }
+        },
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : darkText,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _calorieChartCard() {
+    final now = DateTime.now();
+    int daysCount = _selectedHistoryTab == 0 ? 7 : 30;
+    List<DateTime> dateTimes = List.generate(daysCount, (i) => now.subtract(Duration(days: i))).reversed.toList();
+
+    Map<String, double> calMap = {};
+    for (var date in dateTimes) {
+      final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      calMap[dateStr] = 0.0;
+    }
+
+    for (var meal in _historyMeals) {
+      if (calMap.containsKey(meal.date)) {
+        calMap[meal.date] = calMap[meal.date]! + meal.totalCalories;
+      }
+    }
+
+    List<double> caloriesList = dateTimes.map((dt) {
+      final dateStr = "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+      return calMap[dateStr] ?? 0.0;
+    }).toList();
+
+    List<String> labelList = dateTimes.map((dt) {
+      if (_selectedHistoryTab == 0) {
+        final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        return weekdays[dt.weekday - 1];
+      } else {
+        return dt.day.toString();
+      }
+    }).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Calories Over Time',
+                  style: TextStyle(
+                    color: darkText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Target: ${targetCalories.toStringAsFixed(0)} kcal',
+                  style: TextStyle(
+                    color: primaryBlue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 180,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _CalorieBarChartPainter(
+                values: caloriesList,
+                labels: labelList,
+                target: targetCalories,
+                tabIndex: _selectedHistoryTab == 0 ? 1 : 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricsSummaryCard() {
+    double totalCals = 0.0;
+    double totalP = 0.0;
+    double totalC = 0.0;
+    double totalF = 0.0;
+
+    int daysWithData = _selectedHistoryTab == 0 ? 7 : 30;
+
+    final now = DateTime.now();
+    List<DateTime> dateTimes = List.generate(daysWithData, (i) => now.subtract(Duration(days: i))).reversed.toList();
+    Set<String> allowedDates = dateTimes.map((dt) {
+      return "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+    }).toSet();
+
+    for (var meal in _historyMeals) {
+      if (allowedDates.contains(meal.date)) {
+        totalCals += meal.totalCalories;
+        totalP += meal.totalProtein;
+        totalC += meal.totalCarbs;
+        totalF += meal.totalFat;
+      }
+    }
+
+    double totalWaterMl = 0.0;
+    for (var w in _historyWaterLogs) {
+      if (allowedDates.contains(w.date)) {
+        totalWaterMl += w.amountMl;
+      }
+    }
+
+    double avgCal = totalCals / daysWithData;
+    double avgP = totalP / daysWithData;
+    double avgC = totalC / daysWithData;
+    double avgF = totalF / daysWithData;
+    double avgWaterL = (totalWaterMl / 1000.0) / daysWithData;
+    double targetWaterL = targetWaterMl / 1000.0;
+
+    double calProgress = targetCalories > 0 ? (avgCal / targetCalories).clamp(0.0, 1.0) : 0.0;
+    double pProgress = targetProtein > 0 ? (avgP / targetProtein).clamp(0.0, 1.0) : 0.0;
+    double cProgress = targetCarbs > 0 ? (avgC / targetCarbs).clamp(0.0, 1.0) : 0.0;
+    double fProgress = targetFat > 0 ? (avgF / targetFat).clamp(0.0, 1.0) : 0.0;
+    double waterProgress = targetWaterL > 0 ? (avgWaterL / targetWaterL).clamp(0.0, 1.0) : 0.0;
+
+    double goalCompletion = ((calProgress + pProgress + cProgress + fProgress + waterProgress) / 5.0) * 100.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _metricRow('Average Calories', '${avgCal.toStringAsFixed(0)} kcal', '/ ${targetCalories.toStringAsFixed(0)} kcal', avgCal / targetCalories),
+          Divider(height: 24, color: border),
+          _metricRow('Protein', '${avgP.toStringAsFixed(1)} g', '/ ${targetProtein.toStringAsFixed(0)} g', avgP / targetProtein),
+          Divider(height: 24, color: border),
+          _metricRow('Carbohydrates', '${avgC.toStringAsFixed(1)} g', '/ ${targetCarbs.toStringAsFixed(0)} g', avgC / targetCarbs),
+          Divider(height: 24, color: border),
+          _metricRow('Fats', '${avgF.toStringAsFixed(1)} g', '/ ${targetFat.toStringAsFixed(0)} g', avgF / targetFat),
+          Divider(height: 24, color: border),
+          _metricRow('Water Intake', '${avgWaterL.toStringAsFixed(avgWaterL % 1 == 0 ? 0 : 1)} L', '/ ${targetWaterL % 1 == 0 ? targetWaterL.toStringAsFixed(0) : targetWaterL.toStringAsFixed(1)} L', avgWaterL / targetWaterL),
+          Divider(height: 24, color: border),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Goal Completion',
+                style: TextStyle(
+                  color: darkText,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                '${goalCompletion.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: primaryBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricRow(String title, String value, String limit, double fraction) {
+    final boundedFraction = fraction.clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: greyText,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: darkText,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  limit,
+                  style: TextStyle(
+                    color: greyText,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: boundedFraction,
+            backgroundColor: border,
+            valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
+  }
 }
+
+class _CalorieBarChartPainter extends CustomPainter {
+  final List<double> values;
+  final List<String> labels;
+  final double target;
+  final int tabIndex;
+
+  _CalorieBarChartPainter({
+    required this.values,
+    required this.labels,
+    required this.target,
+    required this.tabIndex,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..strokeCap = StrokeCap.round;
+
+    final double paddingLeft = 32.0;
+    final double paddingRight = 10.0;
+    final double paddingTop = 20.0;
+    final double paddingBottom = 24.0;
+
+    final chartWidth = size.width - paddingLeft - paddingRight;
+    final chartHeight = size.height - paddingTop - paddingBottom;
+
+    double maxVal = target;
+    for (var val in values) {
+      if (val > maxVal) {
+        maxVal = val;
+      }
+    }
+    maxVal = maxVal * 1.15;
+
+    final gridPaint = Paint()
+      ..color = const Color(0xFFF2F4F7)
+      ..strokeWidth = 1.0;
+
+    final textStyle = const TextStyle(
+      color: Color(0xFF667085),
+      fontSize: 10,
+    );
+
+    int divisions = 3;
+    double rawStep = maxVal / divisions;
+    double step = (rawStep / 50.0).roundToDouble() * 50.0;
+    if (step < 50.0) step = 50.0;
+    maxVal = step * divisions;
+
+    for (int i = 0; i <= divisions; i++) {
+      final yVal = step * i;
+      final y = paddingTop + chartHeight - (yVal / maxVal * chartHeight);
+
+      canvas.drawLine(
+        Offset(paddingLeft, y),
+        Offset(size.width - paddingRight, y),
+        gridPaint,
+      );
+
+      final textSpan = TextSpan(
+        text: yVal.toStringAsFixed(0),
+        style: textStyle,
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(paddingLeft - textPainter.width - 6, y - textPainter.height / 2),
+      );
+    }
+
+    final targetPaint = Paint()
+      ..color = const Color(0xFFFF5252)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final targetY = paddingTop + chartHeight - (target / maxVal * chartHeight);
+    canvas.drawLine(
+      Offset(paddingLeft, targetY),
+      Offset(size.width - paddingRight, targetY),
+      targetPaint,
+    );
+
+    final barCount = values.length;
+    final double barSpacing = tabIndex == 2 ? 2.5 : 12.0;
+
+    double barWidth;
+    if (barCount == 1) {
+      barWidth = 40.0;
+    } else {
+      final double totalSpacing = barSpacing * (barCount - 1);
+      barWidth = (chartWidth - totalSpacing) / barCount;
+    }
+
+    for (int i = 0; i < barCount; i++) {
+      final val = values[i];
+      final label = labels[i];
+
+      final double barHeight = (val / maxVal) * chartHeight;
+      double x;
+      if (barCount == 1) {
+        x = paddingLeft + (chartWidth - barWidth) / 2;
+      } else {
+        x = paddingLeft + (i * (barWidth + barSpacing));
+      }
+      final double y = paddingTop + chartHeight - barHeight;
+
+      paint.color = val > target ? const Color(0xFFFF9800) : const Color(0xFF1555C0);
+
+      final double radiusValue = (barWidth < 16.0) ? barWidth / 2.0 : 8.0;
+      final rect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, y, barWidth, barHeight == 0 ? 2 : barHeight),
+        topLeft: Radius.circular(radiusValue),
+        topRight: Radius.circular(radiusValue),
+      );
+      canvas.drawRRect(rect, paint);
+
+      bool showLabel = true;
+      if (tabIndex == 2 && i % 5 != 0) {
+        showLabel = false;
+      }
+
+      if (showLabel) {
+        final textSpan = TextSpan(
+          text: label,
+          style: textStyle,
+        );
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(x + (barWidth - textPainter.width) / 2, size.height - paddingBottom + 6),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CalorieBarChartPainter oldDelegate) {
+    return oldDelegate.values != values || oldDelegate.labels != labels || oldDelegate.target != target || oldDelegate.tabIndex != tabIndex;
+  }
+}
+
