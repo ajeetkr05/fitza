@@ -121,36 +121,100 @@ class WorkoutDetailsScreen extends StatelessWidget {
   /// the screen matches the wireframe layout; wire up real warm-up content
   /// once that's designed - e.g. a fixed list of mobility drills, or a
   /// per-goal warm-up template.
-  Widget _warmupCard(BuildContext context) {
+  // Widget _warmupCard(BuildContext context) {
+  //   final colors = Theme.of(context).extension<FitzaThemeColors>()!;
+  //   final primaryBlue = colors.primaryBlue;
+  //   final darkText = colors.primaryText;
+  //   final greyText = colors.secondaryText;
+  //   return Container(
+  //     width: double.infinity,
+  //     padding: const EdgeInsets.all(18),
+  //     decoration: _cardDecoration(context),
+  //     child: Row(
+  //       children: [
+  //         Icon(Icons.directions_run_rounded, color: primaryBlue),
+  //         const SizedBox(width: 12),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 'Warm-up (5 min)',
+  //                 style: TextStyle(color: darkText, fontWeight: FontWeight.bold, fontSize: 15),
+  //               ),
+  //               Text(
+  //                 'Dynamic warm-up routine',
+  //                 style: TextStyle(color: greyText, fontSize: 13),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         Icon(Icons.chevron_right_rounded, color: greyText),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+    Widget _warmupCard(BuildContext context) {
+    final totalSeconds = recommendation.warmupExercises
+        .fold<int>(0, (sum, w) => sum + w.durationSeconds);
+    final totalMinutes = (totalSeconds / 60).ceil();
     final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     final primaryBlue = colors.primaryBlue;
     final darkText = colors.primaryText;
     final greyText = colors.secondaryText;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
       decoration: _cardDecoration(context),
-      child: Row(
-        children: [
-          Icon(Icons.directions_run_rounded, color: primaryBlue),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+      child: ExpansionTile(
+        shape: const Border(), // removes the default top/bottom divider lines
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 18),
+        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+        leading: Icon(Icons.directions_run_rounded, color: primaryBlue),
+        title: Text(
+          'Warm-up ($totalMinutes min)',
+          style: TextStyle(color: darkText, fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        subtitle: Text(
+          'Tap to see the movements',
+          style: TextStyle(color: greyText, fontSize: 13),
+        ),
+        iconColor: greyText,
+        collapsedIconColor: greyText,
+        children: recommendation.warmupExercises.map((warmup) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Warm-up (5 min)',
-                  style: TextStyle(color: darkText, fontWeight: FontWeight.bold, fontSize: 15),
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(color: primaryBlue, shape: BoxShape.circle),
                 ),
-                Text(
-                  'Dynamic warm-up routine',
-                  style: TextStyle(color: greyText, fontSize: 13),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${warmup.name} · ${warmup.durationSeconds}s',
+                        style: TextStyle(color: darkText, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        warmup.instruction,
+                        style: TextStyle(color: greyText, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          Icon(Icons.chevron_right_rounded, color: greyText),
-        ],
+          );
+        }).toList(),
       ),
     );
   }
