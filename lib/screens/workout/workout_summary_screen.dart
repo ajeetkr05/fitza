@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/workout/daily_recommendation.dart';
+import '../../models/workout/exercise_performance.dart';
 import '../../services/progress/workout_firestore_service.dart';
 
 /// "Workout Summary" (screen 6). Pushed (replacing ActiveWorkoutScreen)
@@ -14,11 +15,13 @@ import '../../services/progress/workout_firestore_service.dart';
 class WorkoutSummaryScreen extends StatelessWidget {
   final DailyRecommendation recommendation;
   final Duration actualDuration;
+  final List<ExercisePerformance> performance;
 
   const WorkoutSummaryScreen({
     super.key,
     required this.recommendation,
     required this.actualDuration,
+    required this.performance,
   });
 
   String get _formattedDuration {
@@ -37,14 +40,16 @@ class WorkoutSummaryScreen extends StatelessWidget {
         workoutName: recommendation.title,
         duration: '${actualDuration.inMinutes} min',
         notes: 'Completed via personalized recommendation: ${recommendation.title}',
-        exercises: recommendation.exercises.map((prescription) {
-          return {
-            'name': prescription.exercise.name,
-            'sets': '${prescription.sets}',
-            // Logging the top of the prescribed rep range as a placeholder -
-            // Active Workout doesn't yet capture actual reps/weight performed.
-            'reps': '${prescription.repsMax}',
+        exercises: performance.map((perf) {
+          final entry = <String, String>{
+            'name': perf.exercise.name,
+            'sets': '${perf.setsCompleted}',
+            'reps': '${perf.repsCompleted}',
           };
+          if (perf.weightKg != null) {
+            entry['weight'] = '${perf.weightKg}';
+          }
+          return entry;
         }).toList(),
       );
 

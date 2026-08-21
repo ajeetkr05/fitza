@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'exercise.dart';
+import 'warmup_exercise.dart';
 
 /// A single exercise with sets/reps/rest assigned for a specific user.
 class ExercisePrescription {
@@ -40,6 +41,7 @@ class DailyRecommendation {
   final int durationMinutes;
   final String difficulty; // matches fitnessExperience-style values
   final List<ExercisePrescription> exercises;
+  final List<WarmupExercise> warmupExercises;
   final List<String> reasonBullets; // "Why this workout?" - shown on screen 2
   final DateTime generatedAt;
 
@@ -50,6 +52,7 @@ class DailyRecommendation {
     required this.durationMinutes,
     required this.difficulty,
     required this.exercises,
+    required this.warmupExercises,
     required this.reasonBullets,
     required this.generatedAt,
   });
@@ -61,6 +64,7 @@ class DailyRecommendation {
       'durationMinutes': durationMinutes,
       'difficulty': difficulty,
       'exercises': exercises.map((e) => e.toMap()).toList(),
+      'warmupExercises': warmupExercises.map((w) => w.toMap()).toList(),
       'reasonBullets': reasonBullets,
       'generatedAt': Timestamp.fromDate(generatedAt),
     };
@@ -89,6 +93,12 @@ class DailyRecommendation {
         .whereType<ExercisePrescription>()
         .toList();
 
+    final rawWarmup = data['warmupExercises'] as List? ?? [];
+    final warmupExercises = rawWarmup
+        .whereType<Map>()
+        .map((w) => WarmupExercise.fromMap(Map<String, dynamic>.from(w)))
+        .toList();
+
     final generatedAtValue = data['generatedAt'];
     return DailyRecommendation(
       id: document.id,
@@ -97,6 +107,7 @@ class DailyRecommendation {
       durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 45,
       difficulty: data['difficulty'] as String? ?? 'Beginner',
       exercises: exercises,
+      warmupExercises: warmupExercises,
       reasonBullets: (data['reasonBullets'] as List?)
               ?.map((e) => e.toString())
               .toList() ??

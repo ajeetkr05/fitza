@@ -7,6 +7,8 @@ import '../../services/profile/profile_firestore_service.dart';
 import '../../services/progress/workout_firestore_service.dart';
 import '../../services/Nutrition/nutrition_firestore_service.dart';
 import '../../services/workout/recommendation_service.dart';
+import '../../services/workout/injury_settings_service.dart';
+import '../../services/workout/equipment_settings_service.dart';
 import '../../models/workout/daily_recommendation.dart';
 import '../../models/workout/plan_customization.dart';
 import '../../models/workout/calorie_summary.dart';
@@ -15,18 +17,16 @@ import '../../widgets/app_bottom_navigation.dart'; // adjust path if different
 import '../../main.dart';
 import 'workout_details_screen.dart';
 import 'customize_plan_screen.dart';
+import 'injury_settings_screen.dart';
+import 'equipment_settings_screen.dart';
 
 /// "Workout Home" + "Today's Recommendation" combined (screens 1 & 2 in the
 /// low-level wireflow). Slots into AppShell in place of
 /// `_placeholderScreen('Workout')`.
 ///
 /// STATE OWNERSHIP: `customization` is now owned by AppShell (the one
-/// stable parent that survives tab switches), not this widget. Previously
-/// this was a StatefulWidget holding its own customization state, but
-/// AppShell rebuilds a fresh `pages` list on every tab switch - meaning a
-/// self-owned state would silently reset every time the user switched
-/// tabs and came back. Passing it down as a prop (plus a callback to
-/// update it) fixes that.
+/// stable parent that survives tab switches), not this widget - passed
+/// down as a prop plus a callback to update it.
 class WorkoutHomeScreen extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabChanged;
@@ -41,7 +41,6 @@ class WorkoutHomeScreen extends StatelessWidget {
     required this.onCustomizationChanged,
   });
 
-
   Future<void> _openCustomizePlan(BuildContext context) async {
     final result = await Navigator.push<PlanCustomization>(
       context,
@@ -53,6 +52,24 @@ class WorkoutHomeScreen extends StatelessWidget {
     if (result != null) {
       onCustomizationChanged(result);
     }
+  }
+
+  void _openInjurySettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const InjurySettingsScreen()),
+    );
+    // No result handling needed - InjurySettingsService's stream (used
+    // below) picks up the change automatically once saved.
+  }
+
+  void _openEquipmentSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const EquipmentSettingsScreen()),
+    );
+    // Same pattern as injuries - EquipmentSettingsService's stream picks
+    // up the change automatically once saved.
   }
 
   /// Matches the 'yyyy-MM-dd' format NutritionFirestoreService.getMealsStream
@@ -98,17 +115,11 @@ class WorkoutHomeScreen extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Most recent first, capped to a small recent window - the
-                // recommendation engine only looks at the last couple of
-                // sessions for rotation purposes.
                 final recentWorkouts = workoutsSnapshot.data!.take(5).toList();
 
                 return StreamBuilder<List<MealEntry>>(
                   stream: NutritionFirestoreService.instance.getMealsStream(_todayDateKey),
                   builder: (context, mealsSnapshot) {
-                    // Calorie data isn't critical to showing a recommendation -
-                    // if it's still loading or errors out, just proceed
-                    // without it rather than blocking the whole screen.
                     CalorieSummary? calorieSummary;
                     if (mealsSnapshot.hasData) {
                       calorieSummary = CalorieSummary.fromDailyTotals(
@@ -116,18 +127,41 @@ class WorkoutHomeScreen extends StatelessWidget {
                       );
                     }
 
-                    final recommendation =
-                        RecommendationService().generateRecommendation(
-                      profile: profile,
-                      recentWorkouts: recentWorkouts,
-                      customization: customization,
-                      calorieSummary: calorieSummary,
-                      // availableEquipment, injuredMuscleGroups intentionally
-                      // omitted - not built yet. Add them here once those
-                      // features exist; no other change needed.
-                    );
+                    return StreamBuilder<List<String>>(
+                      stream: InjurySettingsService.instance.getInjuredMuscleGroupsStream(),
+                      builder: (context, injurySnapshot) {
+                        final injuredMuscleGroups = injurySnapshot.data ?? const <String>[];
 
-                    return _content(context, profile, recommendation);
+                        return StreamBuilder<List<String>?>(
+                          stream: EquipmentSettingsService.instance.getAvailableEquipmentStream(),
+                          builder: (context, equipmentSnapshot) {
+                            // null = user has never configured equipment
+                            // (don't restrict); a real list (possibly
+                            // empty) = they explicitly set it. See
+                            // EquipmentSettingsService for why this
+                            // distinction matters.
+                            final availableEquipment = equipmentSnapshot.data;
+
+                            final recommendation =
+                                RecommendationService().generateRecommendation(
+                              profile: profile,
+                              recentWorkouts: recentWorkouts,
+                              customization: customization,
+                              calorieSummary: calorieSummary,
+                              injuredMuscleGroups: injuredMuscleGroups,
+                              availableEquipment: availableEquipment,
+                            );
+
+                            return _content(
+                              context,
+                              profile,
+                              recommendation,
+                              injuredMuscleGroups,
+                            );
+                          },
+                        );
+                      },
+                    );
                   },
                 );
               },
@@ -156,6 +190,7 @@ class WorkoutHomeScreen extends StatelessWidget {
     BuildContext context,
     UserProfile profile,
     DailyRecommendation recommendation,
+    List<String> injuredMuscleGroups,
   ) {
     final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     final darkText = colors.primaryText;
@@ -165,20 +200,30 @@ class WorkoutHomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Hello, ${profile.displayName.isNotEmpty ? profile.displayName : 'there'}!',
-            style: TextStyle(
-              color: darkText,
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Hello, ${profile.displayName.isNotEmpty ? profile.displayName : 'there'}!',
+                  style: TextStyle(color: darkText, fontSize: 26, fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                onPressed: () => _openInjurySettings(context),
+                icon: Icon(Icons.healing_outlined, color: colors.primaryBlue),
+                tooltip: 'Injuries & Limitations',
+              ),
+              IconButton(
+                onPressed: () => _openEquipmentSettings(context),
+                icon: Icon(Icons.fitness_center_outlined, color: colors.primaryBlue),
+                tooltip: 'Your Equipment',
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Ready to crush your goals today?',
-            style: TextStyle(color: greyText, fontSize: 15),
-          ),
-          const SizedBox(height: 24),
+          Text('Ready to crush your goals today?', style: TextStyle(color: greyText, fontSize: 15)),
+          const SizedBox(height: 20),
+          if (injuredMuscleGroups.isNotEmpty) _injuryBanner(context, injuredMuscleGroups),
+          if (injuredMuscleGroups.isNotEmpty) const SizedBox(height: 14),
           if (customization != null) _customizedBanner(context),
           if (customization != null) const SizedBox(height: 16),
           _recommendationCard(context, recommendation),
@@ -191,16 +236,38 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _injuryBanner(BuildContext context, List<String> injuredMuscleGroups) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(color: const Color(0xFFFFF1E6), borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          const Icon(Icons.healing_outlined, color: Color(0xFFB8631A), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Avoiding exercises for: ${injuredMuscleGroups.join(', ')}',
+              style: const TextStyle(color: Color(0xFFB8631A), fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _openInjurySettings(context),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+            child: const Text('Edit', style: TextStyle(color: Color(0xFFB8631A), fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _customizedBanner(BuildContext context) {
     final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     final primaryBlue = colors.primaryBlue;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: primaryBlue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(14),
-      ),
+      decoration: BoxDecoration(color: primaryBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
           Icon(Icons.tune_rounded, color: primaryBlue, size: 18),
@@ -221,10 +288,7 @@ class WorkoutHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _recommendationCard(
-    BuildContext context,
-    DailyRecommendation recommendation,
-  ) {
+  Widget _recommendationCard(BuildContext context, DailyRecommendation recommendation) {
     final colors = Theme.of(context).extension<FitzaThemeColors>()!;
     final darkText = colors.primaryText;
     final greyText = colors.secondaryText;
@@ -235,19 +299,9 @@ class WorkoutHomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Today's Recommendation",
-            style: TextStyle(color: greyText, fontSize: 14),
-          ),
+          Text("Today's Recommendation", style: TextStyle(color: greyText, fontSize: 14)),
           const SizedBox(height: 6),
-          Text(
-            recommendation.title,
-            style: TextStyle(
-              color: darkText,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(recommendation.title, style: TextStyle(color: darkText, fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -270,10 +324,7 @@ class WorkoutHomeScreen extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: primaryBlue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(color: primaryBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
         child: Column(
           children: [
             Icon(icon, color: primaryBlue, size: 20),
@@ -283,11 +334,7 @@ class WorkoutHomeScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: darkText,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: darkText, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -306,14 +353,7 @@ class WorkoutHomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Why this workout?',
-            style: TextStyle(
-              color: darkText,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text('Why this workout?', style: TextStyle(color: darkText, fontSize: 17, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           FutureBuilder<String>(
             future: GeminiService.instance.explainWorkout(
@@ -327,10 +367,7 @@ class WorkoutHomeScreen extends StatelessWidget {
               if (!snapshot.hasData || snapshot.hasError) {
                 return _reasonBulletsList(context, recommendation.reasonBullets);
               }
-              return Text(
-                snapshot.data!,
-                style: TextStyle(color: greyText, fontSize: 14, height: 1.4),
-              );
+              return Text(snapshot.data!, style: TextStyle(color: greyText, fontSize: 14, height: 1.4));
             },
           ),
         ],
@@ -352,12 +389,7 @@ class WorkoutHomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('•  ', style: TextStyle(color: primaryBlue)),
-                  Expanded(
-                    child: Text(
-                      bullet,
-                      style: TextStyle(color: greyText, fontSize: 14),
-                    ),
-                  ),
+                  Expanded(child: Text(bullet, style: TextStyle(color: greyText, fontSize: 14))),
                 ],
               ),
             ),
@@ -378,22 +410,15 @@ class WorkoutHomeScreen extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => WorkoutDetailsScreen(recommendation: recommendation),
-                ),
+                MaterialPageRoute(builder: (_) => WorkoutDetailsScreen(recommendation: recommendation)),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text(
-              'View Workout Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('View Workout Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
         const SizedBox(height: 12),
@@ -405,14 +430,9 @@ class WorkoutHomeScreen extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: primaryBlue,
               side: BorderSide(color: primaryBlue),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text(
-              'Customize Plan',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+            child: const Text('Customize Plan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -424,20 +444,13 @@ class WorkoutHomeScreen extends StatelessWidget {
     return BoxDecoration(
       color: colors.surface,
       borderRadius: BorderRadius.circular(22),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x12000000),
-          blurRadius: 12,
-          offset: Offset(0, 5),
-        ),
-      ],
+      boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 12, offset: Offset(0, 5))],
     );
   }
 }
 
 /// Simple animated shimmer placeholder shown while waiting on
 /// GeminiService.explainWorkout - three pulsing bars mimicking text lines.
-/// No external shimmer package needed; just an opacity pulse loop.
 class _ExplanationShimmer extends StatefulWidget {
   const _ExplanationShimmer();
 
@@ -445,21 +458,15 @@ class _ExplanationShimmer extends StatefulWidget {
   State<_ExplanationShimmer> createState() => _ExplanationShimmerState();
 }
 
-class _ExplanationShimmerState extends State<_ExplanationShimmer>
-    with SingleTickerProviderStateMixin {
+class _ExplanationShimmerState extends State<_ExplanationShimmer> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.35, end: 0.9).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _opacity = Tween<double>(begin: 0.35, end: 0.9).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -472,12 +479,7 @@ class _ExplanationShimmerState extends State<_ExplanationShimmer>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _opacity,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _opacity.value,
-          child: child,
-        );
-      },
+      builder: (context, child) => Opacity(opacity: _opacity.value, child: child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -498,10 +500,7 @@ class _ExplanationShimmerState extends State<_ExplanationShimmer>
         return Container(
           height: 13,
           width: constraints.maxWidth * widthFraction,
-          decoration: BoxDecoration(
-            color: colors.border,
-            borderRadius: BorderRadius.circular(6),
-          ),
+          decoration: BoxDecoration(color: colors.border, borderRadius: BorderRadius.circular(6)),
         );
       },
     );
